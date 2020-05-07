@@ -3,7 +3,7 @@ unit Joystick;
   {  (C) Copyright 1995-2001, Mike Wiering, e-mail: mike.wiering@wxs.nl  }
 
   {
-     Joystick unit for use with Turbo Pascal 5.5
+     Joystick unit for use with Turbo Pascal 6/7
   }
 
 interface
@@ -53,49 +53,43 @@ implementation
   const
     JOYSTICK_PORT = $201;
 
-  var
-    jrX,
-    jrY: Integer;
-
   procedure ReadJoystick;
   begin
-    jrX := 0;
-    jrY := 0;
+    jr.X := 0;
+    jr.Y := 0;
     if jsEnabled then
-inline(
-                     $9C  (*         pushf *)
-                /$29/$C9  (*         sub     cx, cx *)
-            /$BA/$01/$02  (*         mov     dx, JOYSTICK_PORT *)
-                    /$EC  (*         in      al, dx *)
-                /$F6/$D0  (*         not     al *)
-                /$88/$C4  (*         mov     ah, al *)
-            /$25/$10/$20  (*         and     ax, 2010h *)
-            /$A2/jsButton1  (*         mov     jsButton1, al *)
-                /$D0/$EC  (*         shr     ah, 1 *)
-        /$88/$26/jsButton2  (*         mov     jsButton2, ah *)
-            /$BB/$01/$02  (*         mov     bx, 0201h *)
-                    /$FA  (*         cli *)
-                    /$EE  (*         out     dx, al *)
-                /$B4/$00  (*         mov     ah, 0 *)
-(*     @@1: *)
-                    /$EC  (*         in      al, dx *)
-                /$20/$D8  (*         and     al, bl *)
-        /$01/$06/jrX  (*         add     jr.X, ax *)
-                    /$EC  (*         in      al, dx *)
-                /$20/$F8  (*         and     al, bh *)
-                /$D0/$E8  (*         shr     al, 1 *)
-        /$01/$06/jrY  (*         add     jr.Y, ax *)
-                    /$EC  (*         in      al, dx *)
-                /$A8/$03  (*         test    al, 3 *)
-                /$74/$08  (*         jz      @@2 *)
-                    /$41  (*         inc     cx *)
-                /$75/$E8  (*         jnz     @@1 *)
-    /$C6/$06/jsEnabled/$00  (*         mov     jsEnabled, 0 *)
-(*     @@2: *)
-                    /$9D  (*         popf *)
-);
-    jr.X := jrX;
-    jr.Y := jrY;
+    asm
+        pushf
+        sub     cx, cx
+        mov     dx, JOYSTICK_PORT
+        in      al, dx
+        not     al
+        mov     ah, al
+        and     ax, 2010h
+        mov     jsButton1, al
+        shr     ah, 1
+        mov     jsButton2, ah
+        mov     bx, 0201h
+        cli
+        out     dx, al
+        mov     ah, 0
+    @@1:
+        in      al, dx
+        and     al, bl
+        add     jr.X, ax
+        in      al, dx
+        and     al, bh
+        shr     al, 1
+        add     jr.Y, ax
+        in      al, dx
+        test    al, 3
+        jz      @@2
+        inc     cx
+        jnz     @@1
+        mov     jsEnabled, 0
+    @@2:
+        popf
+    end;
     with jr do
       if jsEnabled and (not jsWaitButton) then
       begin

@@ -6,11 +6,11 @@ program Mario;
      e-mail:   mike.wiering@wxs.nl
   }
 
-  { Original code written in TP 6/7, converted to TP 5.5 }
+  { Compile with Borland Turbo Pascal 6/7 }
 
-  {$A+} {$B-} {$F-} {$I-} {$N-} {$O-} {$R-} {$S-} {$V-}
+  {$A+} {$B-} {$F-} {$G+} {$I-} {$N-} {$O-} {$R-} {$S+} {$V-} {$X+}
 
-  { $DEFINE DEBUG}  { halt the game anytime by pressing mouse button }
+  { $DEFINE DEBUG}  { halt the game by pressing mouse button }
   {$DEFINE MENU}
 
   uses
@@ -53,8 +53,7 @@ program Mario;
   var
     CurPlayer: Integer;
     Passed,
-    EndGame,
-    Dummy: Boolean;  { no extended syntax in TP 5.5 }
+    EndGame: Boolean;
     Config: ConfigData;
 
   {$IFDEF DEBUG}
@@ -219,16 +218,13 @@ program Mario;
   end;
 
   procedure Demo;
-    var
-      Dummy: Boolean;
   begin
     NewData;
     Turbo := FALSE;
     Data.Progress [plMario] := 5;
     PlayMacro;
-    Dummy := PlayWorld (' ', ' ',
-      A3(@Level_6a^)^, A3(@Options_6a^)^, A3(@Options_6a^)^,
-      A3(@Level_6b^)^, A3(@Options_6b^)^, A3(@Options_6b^)^, plMario);
+    PlayWorld (' ', ' ', @Level_6a^, @Options_6a^, @Options_6a^,
+      @Level_6b^, @Options_6b^, @Options_6b^, plMario);
     StopMacro;
   end;
 
@@ -296,9 +292,8 @@ program Mario;
       IntroDone := FALSE;
       NewData;
 
-      Dummy := PlayWorld (#0, #0,
-        A3(@Intro_0^)^, A3(@Options_0^)^, A3(@Options_0^)^,
-        A3(@Intro_0^)^, A3(@Options_0^)^, A3(@Options_0^)^, plMario);
+      PlayWorld (#0, #0, @Intro_0^, @Options_0^, @Options_0^,
+        @Intro_0^, @Options_0^, @Options_0^, plMario);
       InitBackGr (3, 0);
 
       OutPalette ($A0, 35, 45, 50);
@@ -319,9 +314,9 @@ program Mario;
           for j := 1 downto 0 do
             for k := 1 downto 0 do
             begin
-              DrawImage (38 + i + j, 29 + i + k, 108, 28, A3(@Intro000^)^);
-              DrawImage (159 + i + j, 29 + i + k, 24, 28, A3(@Intro001^)^);
-              DrawImage (198 + i + j, 29 + i + k, 84, 28, A3(@Intro002^)^);
+              DrawImage (38 + i + j, 29 + i + k, 108, 28, @Intro000^);
+              DrawImage (159 + i + j, 29 + i + k, 24, 28, @Intro001^);
+              DrawImage (198 + i + j, 29 + i + k, 84, 28, @Intro002^);
             end;
 
         DrawBackGrMap (10 * H + 6, 11 * H - 1, 54, $A0);
@@ -330,7 +325,7 @@ program Mario;
         for i := 0 to NH - 1 do
           for j := 0 to NV - 1 do
             if (i in [0, NH - 1]) or (j in [0, NV - 1]) then
-              DrawImage (i * W, j * H, W, H, A3(@Block000^)^);
+              DrawImage (i * W, j * H, W, H, @Block000^);
         DrawPlayer;
         ShowPage;
       end;
@@ -605,12 +600,12 @@ program Mario;
         plMario:
           begin
             iW := 116;
-            DrawImage (160 - iW div 2, 85 - iH div 2, iW, iH, A3(@Start000^)^);
+            DrawImage (160 - iW div 2, 85 - iH div 2, iW, iH, @Start000^);
           end;
         plLuigi:
           begin
             iW := 108;
-            DrawImage (160 - iW div 2, 85 - iH div 2, iW, iH, A3(@Start001^)^);
+            DrawImage (160 - iW div 2, 85 - iH div 2, iW, iH, @Start001^);
           end;
       end;
       ShowPage;
@@ -635,19 +630,17 @@ begin  { Mario }
 
 {$IFDEF DEBUG}
   MouseHaltAddr := @MouseHalt;
- { asm }
-  inline (
-       $31/$C0                { xor   ax, ax              }
-      /$CD/$33                { int   33h                 }
-      /$40                    { inc   ax                  }
-      /$75/$0B                { jnz   @End                }
-      /$B0/$0C                { mov   al, 0Ch             }
-      /$B9/$0A/$00            { mov   cx, 0Ah             }
-      /$C4/$16/>MouseHaltAddr { les   dx, MouseHaltAddr   }
-      /$CD/$33                { int   33h                 }
-                              { @End:                     }
-  );
- { end; }
+  asm
+      xor   ax, ax
+      int   33h
+      inc   ax
+      jnz   @End
+      mov   al, 0Ch
+      mov   cx, 0Ah
+      les   dx, MouseHaltAddr
+      int   33h
+    @End:
+  end;
 {$ENDIF}
 
   if not DetectVga then
@@ -713,30 +706,18 @@ begin  { Mario }
             ShowPlayerName (CurPlayer);
          {$ENDIF}
             case Data.Progress [CurPlayer] mod NUM_LEV of
-              0: Passed := PlayWorld ('x', '1',
-                   A3(@Level_1a^)^, A3(@Options_1a^)^, A3(@Opt_1a^)^,
-                   A3(@Level_1b^)^, A3(@Options_1b^)^, A3(@Options_1b^)^,
-                   CurPlayer);
-              1: Passed := PlayWorld ('x', '2',
-                   A3(@Level_2a^)^, A3(@Options_2a^)^, A3(@Opt_2a^)^,
-                   A3(@Level_2b^)^, A3(@Options_2b^)^, A3(@Options_2b^)^,
-                   CurPlayer);
-              2: Passed := PlayWorld ('x', '3',
-                   A3(@Level_3a^)^, A3(@Options_3a^)^, A3(@Opt_3a^)^,
-                   A3(@Level_3b^)^, A3(@Options_3b^)^, A3(@Options_3b^)^,
-                   CurPlayer);
-              3: Passed := PlayWorld ('x', '4',
-                   A3(@Level_5a^)^, A3(@Options_5a^)^, A3(@Opt_5a^)^,
-                   A3(@Level_5b^)^, A3(@Options_5b^)^, A3(@Options_5b^)^,
-                   CurPlayer);
-              4: Passed := PlayWorld ('x', '5',
-                   A3(@Level_6a^)^, A3(@Options_6a^)^, A3(@Opt_6a^)^,
-                   A3(@Level_6b^)^, A3(@Options_6b^)^, A3(@Options_6b^)^,
-                   CurPlayer);
-              5: Passed := PlayWorld ('x', '6',
-                   A3(@Level_4a^)^, A3(@Options_4a^)^, A3(@Opt_4a^)^,
-                   A3(@Level_4b^)^, A3(@Options_4b^)^, A3(@Options_4b^)^,
-                   CurPlayer);
+              0: Passed := PlayWorld ('x', '1', @Level_1a^, @Options_1a^, @Opt_1a^,
+                   @Level_1b^, @Options_1b^, @Options_1b^, CurPlayer);
+              1: Passed := PlayWorld ('x', '2', @Level_2a^, @Options_2a^, @Opt_2a^,
+                   @Level_2b^, @Options_2b^, @Options_2b^, CurPlayer);
+              2: Passed := PlayWorld ('x', '3', @Level_3a^, @Options_3a^, @Opt_3a^,
+                   @Level_3b^, @Options_3b^, @Options_3b^, CurPlayer);
+              3: Passed := PlayWorld ('x', '4', @Level_5a^, @Options_5a^, @Opt_5a^,
+                   @Level_5b^, @Options_5b^, @Options_5b^, CurPlayer);
+              4: Passed := PlayWorld ('x', '5', @Level_6a^, @Options_6a^, @Opt_6a^,
+                   @Level_6b^, @Options_6b^, @Options_6b^, CurPlayer);
+              5: Passed := PlayWorld ('x', '6', @Level_4a^, @Options_4a^, @Opt_4a^,
+                   @Level_4b^, @Options_4b^, @Options_4b^, CurPlayer);
               else
                 EndGame := TRUE;
             end;

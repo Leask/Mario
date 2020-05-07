@@ -5,10 +5,10 @@ interface
   uses
     Buffers,
     Figures,
+    VGA256,
     Glitter,
     TmpObj,
     Music,
-    VGA256,
     Crt;
 
   const
@@ -120,8 +120,12 @@ implementation
 
   var
     rKoopa: array [0..3] of array [0..20 * 24] of Byte;
-    FireBallList: array [0..3] of Pointer;
-    KoopaList: array [Left..Right, kGreen..kRed, 0..1] of Pointer;
+
+  const
+    FireBallList: array [0..3] of Pointer = (@F000, @F001, @F002, @F003);
+    KoopaList: array [Left..Right, kGreen..kRed, 0..1] of Pointer =
+      (((@GrKoopa000, @GrKoopa001), (@rdKoopa000, @rdKoopa001)),
+       ((@rKoopa [0], @rKoopa [1]), (@rKoopa [2], @rKoopa [3])));
 
   {$I Fire.$00} {$I Fire.$01}
 
@@ -260,7 +264,6 @@ implementation
     Swap (1, 2);
   end;
 
-
   procedure InitEnemyFigures;
   var
     i, j: Integer;
@@ -272,23 +275,23 @@ implementation
     end;
     GetMem (Enemy, SizeOf (Enemy^));
 
-    Move (A3(@Chibibo000^)^, EnemyPictures [1, Right], SizeOf (ImageBuffer));
-    Move (A3(@Chibibo001^)^, EnemyPictures [2, Right], SizeOf (ImageBuffer));
+    Move (@Chibibo000^, EnemyPictures [1, Right], SizeOf (ImageBuffer));
+    Move (@Chibibo001^, EnemyPictures [2, Right], SizeOf (ImageBuffer));
 
-    Move (A3(@Chibibo002^)^, EnemyPictures [4, Right], SizeOf (ImageBuffer));
-    Move (A3(@Chibibo003^)^, EnemyPictures [5, Right], SizeOf (ImageBuffer));
+    Move (@Chibibo002^, EnemyPictures [4, Right], SizeOf (ImageBuffer));
+    Move (@Chibibo003^, EnemyPictures [5, Right], SizeOf (ImageBuffer));
 
-    Move (A3(@Fish001^)^, EnemyPictures [3, Left], SizeOf (ImageBuffer));
+    Move (@Fish001^, EnemyPictures [3, Left], SizeOf (ImageBuffer));
     Mirror (@EnemyPictures [3, Left], @EnemyPictures [3, Right]);
 
-    Move (A3(@Red000^)^, EnemyPictures [6, Left], SizeOf (ImageBuffer));
-    Move (A3(@Red001^)^, EnemyPictures [7, Left], SizeOf (ImageBuffer));
+    Move (@Red000^, EnemyPictures [6, Left], SizeOf (ImageBuffer));
+    Move (@Red001^, EnemyPictures [7, Left], SizeOf (ImageBuffer));
 
-    Move (A3(@GrKp000^)^, EnemyPictures [8, Right], SizeOf (ImageBuffer));
-    Move (A3(@GrKp001^)^, EnemyPictures [9, Right], SizeOf (ImageBuffer));
+    Move (@GrKp000^, EnemyPictures [8, Right], SizeOf (ImageBuffer));
+    Move (@GrKp001^, EnemyPictures [9, Right], SizeOf (ImageBuffer));
 
-    Move (A3(@RdKp000^)^, EnemyPictures [10, Right], SizeOf (ImageBuffer));
-    Move (A3(@RdKp001^)^, EnemyPictures [11, Right], SizeOf (ImageBuffer));
+    Move (@RdKp000^, EnemyPictures [10, Right], SizeOf (ImageBuffer));
+    Move (@RdKp001^, EnemyPictures [11, Right], SizeOf (ImageBuffer));
 
     for i := 1 to MaxEnemies do
       if (i in [6, 7]) then
@@ -458,34 +461,34 @@ implementation
           tpRisingChamp:
             if YPos <> (MapY * H) then
               if SubTp = 0 then
-                DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, A3(@Champ000^)^)
+                DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, @Champ000^)
               else
-                DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, A3(@Poison000^)^);
+                DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, @Poison000^);
           tpChamp:
             if SubTp = 0 then
-              DrawImage (XPos, YPos, W, H, A3(@Champ000^)^)
+              DrawImage (XPos, YPos, W, H, @Champ000^)
             else
-              DrawImage (XPos, YPos, W, H, A3(@Poison000^)^);
+              DrawImage (XPos, YPos, W, H, @Poison000^);
           tpRisingLife:
             if YPos <> (MapY * H) then
-              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, A3(@Life000^)^);
+              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, @Life000^);
           tpLife:
-            DrawImage (XPos, YPos, W, H, A3(@Life000^)^);
+            DrawImage (XPos, YPos, W, H, @Life000^);
           tpRisingFlower:
             if YPos <> (MapY * H) then
-              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, A3(@Flower000^)^);
+              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, @Flower000^);
           tpFlower:
-            DrawImage (XPos, YPos, W, H, A3(@Flower000^)^);
+            DrawImage (XPos, YPos, W, H, @Flower000^);
           tpRisingStar:
             if YPos <> (MapY * H) then
-              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, A3(@Star000^)^);
+              DrawPart (XPos, YPos, W, H, 0, H - YPos mod H - 1, @Star000^);
           tpStar:
-            DrawImage (XPos, YPos, W, H, A3(@Star000^)^);
+            DrawImage (XPos, YPos, W, H, @Star000^);
           tpFireBall:
             if XPos mod 4 < 2 then
-              DrawImage (XPos, YPos, 12, H div 2, A3(@Fire000^)^)
+              DrawImage (XPos, YPos, 12, H div 2, @Fire000^)
             else
-              DrawImage (XPos, YPos, 12, H div 2, A3(@Fire001^)^);
+              DrawImage (XPos, YPos, 12, H div 2, @Fire001^);
           tpVertFish:
             if (YVel <> 0) or (YPos < NV * H - H) then
           {  if Abs (DelayCounter - MoveDelay) <= 1 then }
@@ -512,16 +515,16 @@ implementation
               then
                 case SubTp of
                   0,
-                  1: Fig := A3(@PPlant002^);
+                  1: Fig := @PPlant002;
                   else
-                     Fig := A3(@PPlant000^)
+                     Fig := @PPlant000
                 end
               else
                 case SubTp of
                   0,
-                  1: Fig := A3(@PPlant003^);
+                  1: Fig := @PPlant003;
                   else
-                     Fig := A3(@PPlant001^);
+                     Fig := @PPlant001;
                 end;
               DrawPart (XPos, YPos, 24, 20, 0, (MapY * H) - YPos - 1, Fig^);
             end;
@@ -532,7 +535,7 @@ implementation
               YVel := 0;
               inc (Status);
               if Status < 12 then
-                DrawImage (XPos, YPos, 24, 20, A3(@Hit000^)^)
+                DrawImage (XPos, YPos, 24, 20, @Hit000^)
               else
                 if Status > 14 then
                   Tp := tpDying;
@@ -555,18 +558,18 @@ implementation
             UpSideDown (XPos, YPos, W, H,
               EnemyPictures [8 + 2 * SubTp, Byte (DirCounter mod 16 <= 8)]);
           tpBlockLift:
-            DrawImage (XPos, YPos, W, H, A3(@Lift1000^)^);
+            DrawImage (XPos, YPos, W, H, @Lift1000^);
           tpDonut:
             begin
               if Status = 0 then
               begin
-                DrawImage (XPos, YPos, W, H, A3(@Donut000^)^);
+                DrawImage (XPos, YPos, W, H, @Donut000^);
                 if YVel = 0 then
                   Counter := 0;
               end
               else
               begin
-                DrawImage (XPos, YPos, W, H, A3(@Donut001^)^);
+                DrawImage (XPos, YPos, W, H, @Donut001^);
                 Dec (Status);
               end;
               if YVel > 0 then
@@ -1277,18 +1280,4 @@ implementation
     end;
   end;
 
-begin
-  FireBallList[0] := A3(@F000^);
-  FireBallList[1] := A3(@F001^);
-  FireBallList[2] := A3(@F002^);
-  FireBallList[3] := A3(@F003^);
-
-  KoopaList[Left, kGreen, 0] := A3(@GrKoopa000^);
-  KoopaList[Left, kGreen, 1] := A3(@GrKoopa001^);
-  KoopaList[Left, kRed, 0] := A3(@RdKoopa000^);
-  KoopaList[Left, kRed, 1] := A3(@RdKoopa001^);
-  KoopaList[Right, kGreen, 0] := @rKoopa[0];
-  KoopaList[Right, kGreen, 1] := @rKoopa[1];
-  KoopaList[Right, kRed, 0] := @rKoopa[2];
-  KoopaList[Right, kRed, 1] := @rKoopa[3];
 end.

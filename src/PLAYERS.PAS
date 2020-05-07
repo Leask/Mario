@@ -10,8 +10,8 @@ interface
     Glitter,
     Enemies,
     BackGr,
-    Music,
     VGA256,
+    Music,
     Txt,
     KeyBoard,
     Joystick,
@@ -157,36 +157,36 @@ implementation
   begin
     FillChar (Pictures^, SizeOf (Pictures^), #$FF);
 
-    Move (A3(@SWMar000^)^, Pictures^ [plMario, mdSmall, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SWMar001^)^, Pictures^ [plMario, mdSmall, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SJMar000^)^, Pictures^ [plMario, mdSmall, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SJMar001^)^, Pictures^ [plMario, mdSmall, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@SWMar000^, Pictures^ [plMario, mdSmall, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@SWMar001^, Pictures^ [plMario, mdSmall, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@SJMar000^, Pictures^ [plMario, mdSmall, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@SJMar001^, Pictures^ [plMario, mdSmall, 3, dirLeft], SizeOf (PicBuffer));
 
-    Move (A3(@LWMar000^)^, Pictures^ [plMario, mdLarge, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LWMar001^)^, Pictures^ [plMario, mdLarge, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LJMar000^)^, Pictures^ [plMario, mdLarge, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LJMar001^)^, Pictures^ [plMario, mdLarge, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@LWMar000^, Pictures^ [plMario, mdLarge, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@LWMar001^, Pictures^ [plMario, mdLarge, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@LJMar000^, Pictures^ [plMario, mdLarge, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@LJMar001^, Pictures^ [plMario, mdLarge, 3, dirLeft], SizeOf (PicBuffer));
 
-    Move (A3(@FWMar000^)^, Pictures^ [plMario, mdFire, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FWMar001^)^, Pictures^ [plMario, mdFire, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FJMar000^)^, Pictures^ [plMario, mdFire, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FJMar001^)^, Pictures^ [plMario, mdFire, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@FWMar000^, Pictures^ [plMario, mdFire, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@FWMar001^, Pictures^ [plMario, mdFire, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@FJMar000^, Pictures^ [plMario, mdFire, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@FJMar001^, Pictures^ [plMario, mdFire, 3, dirLeft], SizeOf (PicBuffer));
 
 
-    Move (A3(@SWLui000^)^, Pictures^ [plLuigi, mdSmall, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SWLui001^)^, Pictures^ [plLuigi, mdSmall, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SJLui000^)^, Pictures^ [plLuigi, mdSmall, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@SJLui001^)^, Pictures^ [plLuigi, mdSmall, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@SWLui000^, Pictures^ [plLuigi, mdSmall, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@SWLui001^, Pictures^ [plLuigi, mdSmall, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@SJLui000^, Pictures^ [plLuigi, mdSmall, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@SJLui001^, Pictures^ [plLuigi, mdSmall, 3, dirLeft], SizeOf (PicBuffer));
 
-    Move (A3(@LWLui000^)^, Pictures^ [plLuigi, mdLarge, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LWLui001^)^, Pictures^ [plLuigi, mdLarge, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LJLui000^)^, Pictures^ [plLuigi, mdLarge, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@LJLui001^)^, Pictures^ [plLuigi, mdLarge, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@LWLui000^, Pictures^ [plLuigi, mdLarge, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@LWLui001^, Pictures^ [plLuigi, mdLarge, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@LJLui000^, Pictures^ [plLuigi, mdLarge, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@LJLui001^, Pictures^ [plLuigi, mdLarge, 3, dirLeft], SizeOf (PicBuffer));
 
-    Move (A3(@FWLui000^)^, Pictures^ [plLuigi, mdFire, 0, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FWLui001^)^, Pictures^ [plLuigi, mdFire, 1, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FJLui000^)^, Pictures^ [plLuigi, mdFire, 2, dirLeft], SizeOf (PicBuffer));
-    Move (A3(@FJLui001^)^, Pictures^ [plLuigi, mdFire, 3, dirLeft], SizeOf (PicBuffer));
+    Move (@FWLui000^, Pictures^ [plLuigi, mdFire, 0, dirLeft], SizeOf (PicBuffer));
+    Move (@FWLui001^, Pictures^ [plLuigi, mdFire, 1, dirLeft], SizeOf (PicBuffer));
+    Move (@FJLui000^, Pictures^ [plLuigi, mdFire, 2, dirLeft], SizeOf (PicBuffer));
+    Move (@FJLui001^, Pictures^ [plLuigi, mdFire, 3, dirLeft], SizeOf (PicBuffer));
 
     for Pl := plMario to plLuigi do
       for Md := mdSmall to mdFire do

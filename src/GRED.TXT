@@ -2,8 +2,8 @@
                               GRED Version 3.80
                        (C) Copyright 2001, Mike Wiering
 
-                         E-mail: mike.wiering@wxs.nl
-                 Homepage: http://home.wxs.nl/~mike.wiering/
+                          E-mail: mike.wiering@wxs.nl
+                 Homepage: http://home.wxs.nl/~mike.wiering
 
 
 INTRODUCTION

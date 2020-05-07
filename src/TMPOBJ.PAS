@@ -3,12 +3,12 @@ unit TmpObj;
 interface
 
   uses
-    Music,
     VGA256,
     BackGr,
-    Glitter,
     Buffers,
+    Glitter,
     Figures,
+    Music,
     Crt;
 
   const
@@ -95,7 +95,7 @@ implementation
     end;
     for i := 1 to MaxRemove do
       RemList [i]. Active := False;
-    Recolor (A3(@Part000^), A3(@Part000^), Options.BrickColor);
+    Recolor (@Part000, @Part000, Options.BrickColor);
   end;
 
   procedure ReadBackGr (i: Integer);
@@ -170,15 +170,15 @@ implementation
           ReadBackGr (i);
           case Tp of
             tpBroken:
-              DrawImage (XPos, YPos, HSize, VSize, A3(@Part000^)^);
+              DrawImage (XPos, YPos, HSize, VSize, @Part000^);
             tpCoin:
-              DrawImage (XPos, YPos, HSize, VSize, A3(@Coin000^)^);
+              DrawImage (XPos, YPos, HSize, VSize, @Coin000^);
             tpHit:
-              DrawImage (XPos, YPos, HSize, VSize, A3(@WHHit000^)^);
+              DrawImage (XPos, YPos, HSize, VSize, @WHHit000^);
             tpFire:
-              DrawImage (XPos, YPos, HSize, VSize, A3(@WHFire000^)^);
+              DrawImage (XPos, YPos, HSize, VSize, @WHFire000^);
             tpNote:
-              DrawImage (XPos, YPos, HSize, VSize, A3(@Note000^)^);
+              DrawImage (XPos, YPos, HSize, VSize, @Note000^);
           end;
           Visible [CurrentPage] := True;
         end;
@@ -277,9 +277,9 @@ implementation
       begin
         case NewImage of
           0: DrawBackGrBlock (RemX, RemY, RemW, RemH);
-          1: DrawImage (RemX, RemY, RemW, RemH, A3(@Quest001^)^);
-          2: DrawImage (RemX, RemY, RemW, RemH, A3(@Quest000^)^);
-          5: DrawImage (RemX, RemY, RemW, RemH, A3(@Note000^)^);
+          1: DrawImage (RemX, RemY, RemW, RemH, @Quest001^);
+          2: DrawImage (RemX, RemY, RemW, RemH, @Quest000^);
+          5: DrawImage (RemX, RemY, RemW, RemH, @Note000^);
         end;
         Dec (RemCount);
         if RemCount < 1 then

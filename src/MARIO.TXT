@@ -1,8 +1,8 @@
 
                                 MARIO & LUIGI
 
-                   http://www.cs.kun.nl/~mike.wiering/mario/
-                     Mike Wiering (mike.wiering@cs.kun.nl)
+                    http://home.wxs.nl/~mike.wiering/mario/
+                       Mike Wiering (mike.wiering@wxs.nl)
 
 
 Introduction
@@ -13,7 +13,7 @@ Introduction
    six levels and the size of the .EXE file is below 64K!
 
    This game was programmed in Turbo Pascal. The source code is now available
-   at http://www.cs.kun.nl/~mike.wiering/mario/.
+   at http://home.wxs.nl/~mike.wiering/mario/.
 
 
 Controls
@@ -47,7 +47,7 @@ More games
 
    If you like this kind of games, check out the following site for more:
 
-      http://www.cs.kun.nl/~mike.wiering/home  (or just http://yi.org/mw)
+      http://home.wxs.nl/~mike.wiering/
  
 
 Disclaimer

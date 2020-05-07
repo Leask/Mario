@@ -10,16 +10,11 @@ unit VGA256;
 
   {$DEFINE DEBUG}
 
-(*   {$D,$L} *)
   {$R-}  { no range-checking }
   {$I-}  { no I/O-checking }
-(*   {$G+} *)
-    { allow 286 instructions }
+  {$G+}  { allow 286 instructions }
 
 interface
-
-  { add 3 to a pointer variable - skip procedure header }
-  function A3 (var P): Pointer;
 
   const
     VGA_SEGMENT           = $A000;
@@ -68,7 +63,6 @@ interface
   procedure OldMode;
   function GetMode: Byte;
   procedure SetMode (NewMode: Byte);
-  procedure SetWidth (NewWidth: Word);
   procedure ClearVGAMem;
   procedure WaitDisplay;
   procedure WaitRetrace;
@@ -105,16 +99,6 @@ interface
 
 implementation
 
-  function A3 (var P): Pointer;
-    var
-      P2: Pointer;
-      W: Word absolute P2;
-  begin
-    P2 := @P;
-    Inc (W, 3);
-    A3 := P2;
-  end;
-
   var
     OldExitProc: Pointer;
     OldScreenMode: Byte;
@@ -147,40 +131,40 @@ implementation
   function GetMode: Byte;
     { Get video mode }
   begin
-inline(
-                     $55  (*         push    bp *)
-                /$B4/$0F  (*         mov     ah, 0Fh *)
-                /$CD/$10  (*         int     10h *)
-            /$88/$46/$FF  (*         mov     @Result, al *)
-                    /$5D  (*         pop     bp *)
-);
+    asm
+        push    bp
+        mov     ah, 0Fh
+        int     10h
+        mov     @Result, al
+        pop     bp
+    end;
   end;
 
   procedure SetMode (NewMode: Byte);
     { Set video mode }
   begin
-inline(
-                     $55  (*         push    bp *)
-                /$30/$E4  (*         xor     ah, ah *)
-            /$8A/$46/$06  (*         mov     al, NewMode *)
-                /$CD/$10  (*         int     10h *)
-                    /$5D  (*         pop     bp *)
-);
+    asm
+        push    bp
+        xor     ah, ah
+        mov     al, NewMode
+        int     10h
+        pop     bp
+    end;
   end;
 
   procedure SetWidth (NewWidth: Word);
     { Set screen width (NewWidth >= 40) }
   begin
-inline(
-             $8B/$46/$06  (*         mov     ax, NewWidth *)
-                    /$50  (*         push    ax *)
-            /$BA/$D4/$03  (*         mov     dx, CRTC_INDEX *)
-            /$B8/$13/$00  (*         mov     ax, 13h *)
-                    /$EE  (*         out     dx, al *)
-                    /$58  (*         pop     ax *)
-                    /$42  (*         inc     dx *)
-                    /$EE  (*         out     dx, al *)
-);
+    asm
+        mov     ax, NewWidth
+        push    ax
+        mov     dx, CRTC_INDEX
+        mov     ax, 13h
+        out     dx, al
+        pop     ax
+        inc     dx
+        out     dx, al
+    end;
   end;
 
   function DetectVGA: Boolean;
@@ -188,16 +172,16 @@ inline(
       VGADetected: Boolean;
   begin
     VGADetected := False;
-inline(
-                     $55  (*         push    bp *)
-            /$B8/$00/$1A  (*         mov     ax, 1A00h *)
-                /$CD/$10  (*         int     10h *)
-                /$3C/$1A  (*         cmp     al, 1Ah *)
-                /$75/$03  (*         jnz     @NoVGA *)
-            /$FE/$46/$FE  (*         inc     VGADetected *)
-(*     @NoVGA: *)
-                    /$5D  (*         pop     bp *)
-);
+    asm
+        push    bp
+        mov     ax, 1A00h
+        int     10h
+        cmp     al, 1Ah
+        jnz     @NoVGA
+        inc     VGADetected
+    @NoVGA:
+        pop     bp
+    end;
     DetectVGA := VGADetected;
   end;
 
@@ -208,47 +192,47 @@ inline(
     SetMode ($13);
     ClearPalette;
     SetWidth (BYTES_PER_LINE shr 1);
-inline(
-             $BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                /$B0/$04  (*         mov     al, MEMORY_MODE *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                /$24/$F7  (*         and     al, not 8 *)
-                /$0C/$04  (*         or      al, 4 *)
-                    /$EE  (*         out     dx, al *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                /$B0/$05  (*         mov     al, GRAPHICS_MODE *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                /$24/$EF  (*         and     al, not 10h *)
-                    /$EE  (*         out     dx, al *)
-                    /$4A  (*         dec     dx *)
-                /$B0/$06  (*         mov     al, MISCELLANEOUS *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                /$24/$FD  (*         and     al, not 2 *)
-                    /$EE  (*         out     dx, al *)
-);
+    asm
+        mov     dx, SC_INDEX
+        mov     al, MEMORY_MODE
+        out     dx, al
+        inc     dx
+        in      al, dx
+        and     al, not 8
+        or      al, 4
+        out     dx, al
+        mov     dx, GC_INDEX
+        mov     al, GRAPHICS_MODE
+        out     dx, al
+        inc     dx
+        in      al, dx
+        and     al, not 10h
+        out     dx, al
+        dec     dx
+        mov     al, MISCELLANEOUS
+        out     dx, al
+        inc     dx
+        in      al, dx
+        and     al, not 2
+        out     dx, al
+    end;
     ClearVGAMem;
-inline(
-             $BA/$D4/$03  (*         mov     dx, CRTC_INDEX *)
-                /$B0/$14  (*         mov     al, UNDERLINE *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                /$24/$BF  (*         and     al, not 40h *)
-                    /$EE  (*         out     dx, al *)
-                    /$4A  (*         dec     dx *)
-                /$B0/$17  (*         mov     al, MODE_CONTROL *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                /$0C/$40  (*         or      al, 40h *)
-                    /$EE  (*         out     dx, al *)
-);
+    asm
+        mov     dx, CRTC_INDEX
+        mov     al, UNDERLINE
+        out     dx, al
+        inc     dx
+        in      al, dx
+        and     al, not 40h
+        out     dx, al
+        dec     dx
+        mov     al, MODE_CONTROL
+        out     dx, al
+        inc     dx
+        in      al, dx
+        or      al, 40h
+        out     dx, al
+    end;
     if not InGraphicsMode then
     begin
       OldExitProc := ExitProc;
@@ -273,40 +257,40 @@ inline(
 
   procedure ClearVGAMem;
   begin
-inline(
-                     $06  (*         push    es *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-            /$B8/$02/$0F  (*         mov     ax, 0F00h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
-                /$31/$C0  (*         xor     ax, ax *)
-                /$89/$C7  (*         mov     di, ax *)
-            /$B9/$00/$80  (*         mov     cx, 8000h *)
-                    /$FC  (*         cld *)
-                /$F3/$AB  (*         rep     stosw *)
-                    /$07  (*         pop     es *)
-);
+    asm
+        push    es
+        mov     dx, SC_INDEX
+        mov     ax, 0F00h + MAP_MASK
+        out     dx, ax
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
+        xor     ax, ax
+        mov     di, ax
+        mov     cx, 8000h
+        cld
+        rep     stosw
+        pop     es
+    end;
   end;
 
   procedure WaitDisplay;
   begin
-inline(
-             $BA/$DA/$03  (*           mov     dx, VERT_RESCAN *)
-                    /$EC  (*   @1:     in      al, dx *)
-                /$A8/$08  (*           test    al, VERT_RETRACE_MASK *)
-                /$75/$FB  (*           jnz     @1 *)
-);
+    asm
+          mov     dx, VERT_RESCAN
+  @1:     in      al, dx
+          test    al, VERT_RETRACE_MASK
+          jnz     @1
+    end;
   end;
 
   procedure WaitRetrace;
   begin
-inline(
-             $BA/$DA/$03  (*           mov     dx, VERT_RESCAN *)
-                    /$EC  (*   @1:     in      al, dx *)
-                /$A8/$08  (*           test    al, VERT_RETRACE_MASK *)
-                /$74/$FB  (*           jz      @1 *)
-);
+    asm
+          mov     dx, VERT_RESCAN
+  @1:     in      al, dx
+          test    al, VERT_RETRACE_MASK
+          jz      @1
+    end;
   end;
 
   procedure SetView (X, Y: Integer);
@@ -320,49 +304,49 @@ inline(
   var
     i: Integer;
   begin
-inline(
-                     $FA  (*           cli *)
+    asm
+          cli
 
-            /$BA/$DA/$03  (*           mov     dx, VERT_RESCAN               { wait for display } *)
-                    /$EC  (*   @1:     in      al, dx *)
-                /$A8/$08  (*           test    al, VERT_RETRACE_MASK *)
-                /$75/$FB  (*           jnz     @1 *)
+          mov     dx, VERT_RESCAN               { wait for display }
+  @1:     in      al, dx
+          test    al, VERT_RETRACE_MASK
+          jnz     @1
 
-            /$D1/$66/$0A  (*           shl     X, 1 *)
-            /$D1/$66/$08  (*           shl     Y, 1 *)
-            /$8B/$46/$08  (*           mov     ax, Y *)
-            /$BB/$2D/$00  (*           mov     bx, BYTES_PER_LINE / 2 *)
-                /$F7/$E3  (*           mul     bx *)
-            /$8B/$5E/$0A  (*           mov     bx, X *)
-                /$B1/$03  (*           mov     cl, 3 *)
-                /$D3/$EB  (*           shr     bx, cl *)
-                /$01/$C3  (*           add     bx, ax *)
-                /$B0/$0C  (*           mov     al, START_ADDRESS_HIGH *)
-            /$8A/$66/$06  (*           mov     ah, PageNr *)
-                /$D0/$CC  (*           ror     ah, 1 *)
-                /$00/$FC  (*           add     ah, bh *)
-            /$BA/$D4/$03  (*           mov     dx, CRTC_INDEX *)
-                    /$EF  (*           out     dx, ax *)
-                /$B0/$0D  (*           mov     al, START_ADDRESS_LOW *)
-                /$88/$DC  (*           mov     ah, bl *)
-                    /$EF  (*           out     dx, ax *)
+          shl     X, 1
+          shl     Y, 1
+          mov     ax, Y
+          mov     bx, BYTES_PER_LINE / 2
+          mul     bx
+          mov     bx, X
+          mov     cl, 3
+          shr     bx, cl
+          add     bx, ax
+          mov     al, START_ADDRESS_HIGH
+          mov     ah, PageNr
+          ror     ah, 1
+          add     ah, bh
+          mov     dx, CRTC_INDEX
+          out     dx, ax
+          mov     al, START_ADDRESS_LOW
+          mov     ah, bl
+          out     dx, ax
 
-            /$BA/$DA/$03  (*           mov     dx, VERT_RESCAN               { wait for retrace } *)
-                    /$EC  (*   @2:     in      al, dx *)
-                /$A8/$08  (*           test    al, VERT_RETRACE_MASK *)
-                /$74/$FB  (*           jz      @2 *)
+          mov     dx, VERT_RESCAN               { wait for retrace }
+  @2:     in      al, dx
+          test    al, VERT_RETRACE_MASK
+          jz      @2
 
-            /$8B/$46/$0A  (*           mov     ax, X *)
-            /$25/$07/$00  (*           and     ax, 7 *)
-                /$04/$10  (*           add     al, 10h *)
-            /$BA/$C0/$03  (*           mov     dx, 3c0h *)
-                /$88/$C4  (*           mov     ah, al *)
-                /$B0/$33  (*           mov     al, 33h *)
-                    /$EE  (*           out     dx, al *)
-                /$86/$C4  (*           xchg    ah, al *)
-                    /$EE  (*           out     dx, al *)
-                    /$FB  (*           sti *)
-);
+          mov     ax, X
+          and     ax, 7
+          add     al, 10h
+          mov     dx, 3c0h
+          mov     ah, al
+          mov     al, 33h
+          out     dx, al
+          xchg    ah, al
+          out     dx, al
+          sti
+    end;
   end;
 
   procedure SwapPages;
@@ -388,33 +372,34 @@ inline(
   procedure Border (Attr: Byte);
     { Draw a border around the screen }
   begin
-inline(
-                     $55  (*           push    bp *)
-            /$B8/$01/$10  (*           mov     ax, 1001h *)
-            /$8A/$7E/$06  (*           mov     bh, Attr *)
-                /$CD/$10  (*           int     10h *)
-                    /$5D  (*           pop     bp *)
-);
+    asm
+          push    bp
+          mov     ax, 1001h
+          mov     bh, Attr
+          int     10h
+          pop     bp
+    end;
   end;
 
   procedure SetYStart (NewYStart: Integer);
   begin
-inline(
-             $BA/$D4/$03  (*           mov     dx, CRTC_INDEX *)
-                /$B0/$16  (*           mov     al, 16h *)
-            /$8A/$66/$06  (*           mov     ah, Byte Ptr [NewYStart] *)
-                    /$EF  (*           out     dx, ax *)
-);
+    asm
+          mov     dx, CRTC_INDEX
+          mov     al, 16h
+          mov     ah, Byte Ptr [NewYStart]
+          and     ah, 7Fh
+          out     dx, ax
+    end;
   end;
 
   procedure SetYEnd (NewYEnd: Integer);
   begin
-inline(
-             $BA/$D4/$03  (*           mov     dx, CRTC_INDEX *)
-                /$B0/$15  (*           mov     al, 15h *)
-            /$8A/$66/$06  (*           mov     ah, Byte Ptr [NewYEnd] *)
-                    /$EF  (*           out     dx, ax *)
-);
+    asm
+          mov     dx, CRTC_INDEX
+          mov     al, 15h
+          mov     ah, Byte Ptr [NewYEnd]
+          out     dx, ax
+    end;
   end;
 
   procedure SetYOffset (NewYOffset: Integer);
@@ -430,832 +415,830 @@ inline(
   procedure PutPixel (X, Y: Integer; Attr: Byte);
     { Draw a single pixel at (X, Y) with color Attr }
   begin
-inline(
-                     $06  (*         push    es *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
-            /$8B/$56/$08  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$4E/$0A  (*         mov     cx, X *)
-                    /$51  (*         push    cx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$01/$C8  (*         add     ax, cx *)
-                /$89/$C7  (*         mov     di, ax *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
-                    /$59  (*         pop     cx *)
-            /$80/$E1/$03  (*         and     cl, 3 *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
-            /$8A/$46/$06  (*         mov     al, Attr *)
-                    /$AA  (*         stosb *)
-                    /$07  (*         pop     es *)
-);
+    asm
+        push    es
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
+        mov     dx, Y
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        mov     cx, X
+        push    cx
+        shr     cx, 1
+        shr     cx, 1
+        add     ax, cx
+        mov     di, ax
+        add     di, PageOffset
+        pop     cx
+        and     cl, 3
+        mov     ah, 1
+        shl     ah, cl
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
+        mov     al, Attr
+        stosb
+        pop     es
+    end;
   end;
 
   function GetPixel (X, Y: Integer): Byte;
     { Get color of pixel at (X, Y) }
   begin
-inline(
-                     $06  (*         push    es *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
-            /$8B/$56/$06  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$4E/$08  (*         mov     cx, X *)
-                    /$51  (*         push    cx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$01/$C8  (*         add     ax, cx *)
-                /$89/$C6  (*         mov     si, ax *)
-        /$03/$36/PageOffset  (*         add     si, PageOffset *)
-                    /$58  (*         pop     ax *)
-                /$24/$03  (*         and     al, 3 *)
-                /$88/$C4  (*         mov     ah, al *)
-                /$B0/$04  (*         mov     al, READ_MAP *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
-            /$26/$8A/$04  (*         seges   mov al, [si] *)
-                    /$07  (*         pop     es *)
-            /$88/$46/$FF  (*         mov     @Result, al *)
-);
+    asm
+        push    es
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
+        mov     dx, Y
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        mov     cx, X
+        push    cx
+        shr     cx, 1
+        shr     cx, 1
+        add     ax, cx
+        mov     si, ax
+        add     si, PageOffset
+        pop     ax
+        and     al, 3
+        mov     ah, al
+        mov     al, READ_MAP
+        mov     dx, GC_INDEX
+        out     dx, ax
+        seges   mov al, [si]
+        pop     es
+        mov     @Result, al
+    end;
   end;
 
   procedure DrawImage (XPos, YPos, Width, Height: Integer; var BitMap);
     { Draw an image on the screen (NULL-bytes are ignored) }
   begin
-inline(
-                     $1E  (*         push    ds *)
+    asm
+        push    ds
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$46/$0E  (*         mov     ax, YPos *)
-            /$3D/$B6/$00  (*         cmp     ax, VIR_SCREEN_HEIGHT *)
-                /$72/$0F  (*         jb      @NotNeg *)
-    /$7E/$03/$E9/$8C/$00  (*         jg      @End *)
-                /$89/$C3  (*         mov     bx, ax *)
-            /$03/$5E/$0A  (*         add     bx, Height *)
-    /$72/$03/$E9/$82/$00  (*         jnc     @End *)
-(*   @NotNeg: *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$7E/$10  (*         mov     di, XPos *)
-                /$89/$FB  (*         mov     bx, di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = (YPos * 80) + XPos / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
+        mov     ax, YPos
+        cmp     ax, VIR_SCREEN_HEIGHT
+        jb      @NotNeg
+        jg      @End
+        mov     bx, ax
+        add     bx, Height
+        jnc     @End
+  @NotNeg:
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     di, XPos
+        mov     bx, di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = (YPos * 80) + XPos / 4 }
+        add     di, PageOffset
 
-            /$C5/$76/$06  (*         lds     si, BitMap              { Point to bitmap } *)
+        lds     si, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-                /$88/$D9  (*         mov     cl, bl *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        mov     cl, bl
+        mov     ah, 1
+        shl     ah, cl
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
-                    /$50  (*         push    ax                      { Mask in AH } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
+        push    ax                      { Mask in AH }
 
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$57  (*         push    di *)
-            /$8B/$5E/$0C  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$29/$D8  (*         sub     ax, bx                  { Space before next line } *)
-            /$8B/$56/$0A  (*         mov     dx, Height *)
-(*   @Line: *)
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        cld
+        push    di
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        sub     ax, bx                  { Space before next line }
+        mov     dx, Height
+  @Line:
+        mov     cx, bx
+        shr     cx, 1
 
-                    /$50  (*         push    ax *)
-                    /$9C  (*         pushf *)
+        push    ax
+        pushf
 
-(*   @Pixel: *)
-                    /$AD  (*         lodsw *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Skip1 *)
-                    /$26  (*         seges *)
-                /$88/$05  (*         mov     [di], al *)
-(*   @Skip1: *)
-                    /$47  (*         inc     di *)
-                /$08/$E4  (*         or      ah, ah *)
-                /$74/$03  (*         jz      @Skip2 *)
-                    /$26  (*         seges *)
-                /$88/$25  (*         mov     [di], ah *)
-(*   @Skip2: *)
-                    /$47  (*         inc     di *)
-                /$E2/$ED  (*         loop    @Pixel *)
+  @Pixel:
+        lodsw
+        or      al, al
+        jz      @Skip1
+        seges
+        mov     [di], al
+  @Skip1:
+        inc     di
+        or      ah, ah
+        jz      @Skip2
+        seges
+        mov     [di], ah
+  @Skip2:
+        inc     di
+        loop    @Pixel
 
-                    /$9D  (*         popf *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$E3/$09  (*         jcxz    @Skip3 *)
+        popf
+        rcl     cx, 1
+        jcxz    @Skip3
 
-                    /$AC  (*         lodsb *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Odd *)
-                    /$AA  (*         stosb *)
-                /$EB/$01  (*         jmp     @Skip3 *)
-                    /$47  (*   @Odd: inc     di *)
-(*   @Skip3: *)
-                    /$58  (*         pop     ax *)
-                /$01/$C7  (*         add     di, ax *)
-                    /$4A  (*         dec     dx *)
-                /$75/$D3  (*         jnz     @Line *)
+        lodsb
+        or      al, al
+        jz      @Odd
+        stosb
+        jmp     @Skip3
+  @Odd: inc     di
+  @Skip3:
+        pop     ax
+        add     di, ax
+        dec     dx
+        jnz     @Line
 
-                    /$5F  (*         pop     di *)
+        pop     di
 
-                    /$58  (*         pop     ax *)
-                /$88/$E0  (*         mov     al, ah *)
-                /$B1/$04  (*         mov     cl, 4 *)
-                /$D2/$E0  (*         shl     al, cl *)
-                /$08/$C4  (*         or      ah, al                  { Mask for next byte } *)
-                /$D0/$C4  (*         rol     ah, 1                   { Bit mask for next plane } *)
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D7/$00  (*         adc     di, 0 *)
-                /$E2/$A4  (*         loop    @Plane *)
+        pop     ax
+        mov     al, ah
+        mov     cl, 4
+        shl     al, cl
+        or      ah, al                  { Mask for next byte }
+        rol     ah, 1                   { Bit mask for next plane }
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     di, 0
+        loop    @Plane
 
-(*     @End: *)
-                    /$1F  (*         pop     ds *)
-);
+    @End:
+        pop     ds
+    end;
   end;
 
   procedure RecolorImage (XPos, YPos, Width, Height: Integer; var BitMap; Diff: Byte);
   begin
-inline(
-                     $1E  (*         push    ds *)
+    asm
+        push    ds
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$46/$10  (*         mov     ax, YPos *)
-            /$3D/$B6/$00  (*         cmp     ax, VIR_SCREEN_HEIGHT *)
-                /$72/$0F  (*         jb      @NotNeg *)
-    /$7E/$03/$E9/$95/$00  (*         jg      @End *)
-                /$89/$C3  (*         mov     bx, ax *)
-            /$03/$5E/$0C  (*         add     bx, Height *)
-    /$72/$03/$E9/$8B/$00  (*         jnc     @End *)
-(*   @NotNeg: *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$7E/$12  (*         mov     di, XPos *)
-                /$89/$FB  (*         mov     bx, di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = (YPos * 80) + XPos / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
+        mov     ax, YPos
+        cmp     ax, VIR_SCREEN_HEIGHT
+        jb      @NotNeg
+        jg      @End
+        mov     bx, ax
+        add     bx, Height
+        jnc     @End
+  @NotNeg:
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     di, XPos
+        mov     bx, di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = (YPos * 80) + XPos / 4 }
+        add     di, PageOffset
 
-            /$C5/$76/$08  (*         lds     si, BitMap              { Point to bitmap } *)
+        lds     si, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-                /$88/$D9  (*         mov     cl, bl *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        mov     cl, bl
+        mov     ah, 1
+        shl     ah, cl
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
-                    /$50  (*         push    ax                      { Mask in AH } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
+        push    ax                      { Mask in AH }
 
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$57  (*         push    di *)
-            /$8B/$5E/$0E  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$29/$D8  (*         sub     ax, bx                  { Space before next line } *)
-            /$8B/$56/$0C  (*         mov     dx, Height *)
-(*   @Line: *)
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        cld
+        push    di
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        sub     ax, bx                  { Space before next line }
+        mov     dx, Height
+  @Line:
+        mov     cx, bx
+        shr     cx, 1
 
-                    /$50  (*         push    ax *)
-                    /$9C  (*         pushf *)
+        push    ax
+        pushf
 
-(*   @Pixel: *)
-                    /$AD  (*         lodsw *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$06  (*         jz      @Skip1 *)
-            /$02/$46/$06  (*         add     al, Diff *)
-                    /$26  (*         seges *)
-                /$88/$05  (*         mov     [di], al *)
-(*   @Skip1: *)
-                    /$47  (*         inc     di *)
-                /$08/$E4  (*         or      ah, ah *)
-                /$74/$06  (*         jz      @Skip2 *)
-            /$02/$66/$06  (*         add     ah, Diff *)
-                    /$26  (*         seges *)
-                /$88/$25  (*         mov     [di], ah *)
-(*   @Skip2: *)
-                    /$47  (*         inc     di *)
-                /$E2/$E7  (*         loop    @Pixel *)
+  @Pixel:
+        lodsw
+        or      al, al
+        jz      @Skip1
+        add     al, Diff
+        seges
+        mov     [di], al
+  @Skip1:
+        inc     di
+        or      ah, ah
+        jz      @Skip2
+        add     ah, Diff
+        seges
+        mov     [di], ah
+  @Skip2:
+        inc     di
+        loop    @Pixel
 
-                    /$9D  (*         popf *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$E3/$0C  (*         jcxz    @Skip3 *)
+        popf
+        rcl     cx, 1
+        jcxz    @Skip3
 
-                    /$AC  (*         lodsb *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$06  (*         jz      @Odd *)
-            /$02/$46/$06  (*         add     al, Diff *)
-                    /$AA  (*         stosb *)
-                /$EB/$01  (*         jmp     @Skip3 *)
-                    /$47  (*   @Odd: inc     di *)
-(*   @Skip3: *)
-                    /$58  (*         pop     ax *)
-                /$01/$C7  (*         add     di, ax *)
-                    /$4A  (*         dec     dx *)
-                /$75/$CA  (*         jnz     @Line *)
+        lodsb
+        or      al, al
+        jz      @Odd
+        add     al, Diff
+        stosb
+        jmp     @Skip3
+  @Odd: inc     di
+  @Skip3:
+        pop     ax
+        add     di, ax
+        dec     dx
+        jnz     @Line
 
-                    /$5F  (*         pop     di *)
+        pop     di
 
-                    /$58  (*         pop     ax *)
-                /$88/$E0  (*         mov     al, ah *)
-                /$B1/$04  (*         mov     cl, 4 *)
-                /$D2/$E0  (*         shl     al, cl *)
-                /$08/$C4  (*         or      ah, al                  { Mask for next byte } *)
-                /$D0/$C4  (*         rol     ah, 1                   { Bit mask for next plane } *)
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D7/$00  (*         adc     di, 0 *)
-                /$E2/$9B  (*         loop    @Plane *)
+        pop     ax
+        mov     al, ah
+        mov     cl, 4
+        shl     al, cl
+        or      ah, al                  { Mask for next byte }
+        rol     ah, 1                   { Bit mask for next plane }
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     di, 0
+        loop    @Plane
 
-(*     @End: *)
-                    /$1F  (*         pop     ds *)
-);
+    @End:
+        pop     ds
+    end;
   end;
 
   procedure DrawPart (XPos, YPos, Width, Height, Y1, Y2: Integer; var BitMap);
   begin
-inline(
-                     $1E  (*         push    ds *)
-        /$83/$7E/$0E/$00  (*         cmp     Height, 0 *)
-    /$7F/$03/$E9/$B1/$00  (*         jle     @End *)
+    asm
+        push    ds
+        cmp     Height, 0
+        jle     @End
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$46/$12  (*         mov     ax, YPos *)
-            /$3D/$B6/$00  (*         cmp     ax, VIR_SCREEN_HEIGHT *)
-                /$72/$0F  (*         jb      @NotNeg *)
-    /$7E/$03/$E9/$9F/$00  (*         jg      @End *)
-                /$89/$C3  (*         mov     bx, ax *)
-            /$03/$5E/$0E  (*         add     bx, Height *)
-    /$72/$03/$E9/$95/$00  (*         jnc     @End *)
-(*   @NotNeg: *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$7E/$14  (*         mov     di, XPos *)
-                /$89/$FB  (*         mov     bx, di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = (YPos * 80) + XPos / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
+        mov     ax, YPos
+        cmp     ax, VIR_SCREEN_HEIGHT
+        jb      @NotNeg
+        jg      @End
+        mov     bx, ax
+        add     bx, Height
+        jnc     @End
+  @NotNeg:
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     di, XPos
+        mov     bx, di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = (YPos * 80) + XPos / 4 }
+        add     di, PageOffset
 
-            /$C5/$76/$06  (*         lds     si, BitMap              { Point to bitmap } *)
+        lds     si, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-                /$88/$D9  (*         mov     cl, bl *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        mov     cl, bl
+        mov     ah, 1
+        shl     ah, cl
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
-                    /$50  (*         push    ax                      { Mask in AH } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
+        push    ax                      { Mask in AH }
 
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$57  (*         push    di *)
-            /$8B/$5E/$10  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$29/$D8  (*         sub     ax, bx                  { Space before next line } *)
+        cld
+        push    di
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        sub     ax, bx                  { Space before next line }
 
-                /$31/$D2  (*         xor     dx, dx *)
-(*   @Line: *)
-            /$3B/$56/$0C  (*         cmp     dx, Y1 *)
-                /$7C/$31  (*         jl      @EndLine *)
-            /$3B/$56/$0A  (*         cmp     dx, Y2 *)
-                /$7F/$2C  (*         jg      @EndLine *)
+        xor     dx, dx
+  @Line:
+        cmp     dx, Y1
+        jl      @EndLine
+        cmp     dx, Y2
+        jg      @EndLine
 
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        mov     cx, bx
+        shr     cx, 1
 
-                    /$50  (*         push    ax *)
-                    /$9C  (*         pushf *)
+        push    ax
+        pushf
 
-(*   @Pixel: *)
-                    /$AD  (*         lodsw *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Skip1 *)
-                    /$26  (*         seges *)
-                /$88/$05  (*         mov     [di], al *)
-(*   @Skip1: *)
-                    /$47  (*         inc     di *)
-                /$08/$E4  (*         or      ah, ah *)
-                /$74/$03  (*         jz      @Skip2 *)
-                    /$26  (*         seges *)
-                /$88/$25  (*         mov     [di], ah *)
-(*   @Skip2: *)
-                    /$47  (*         inc     di *)
-                /$E2/$ED  (*         loop    @Pixel *)
+  @Pixel:
+        lodsw
+        or      al, al
+        jz      @Skip1
+        seges
+        mov     [di], al
+  @Skip1:
+        inc     di
+        or      ah, ah
+        jz      @Skip2
+        seges
+        mov     [di], ah
+  @Skip2:
+        inc     di
+        loop    @Pixel
 
-                    /$9D  (*         popf *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$E3/$09  (*         jcxz    @Skip3 *)
+        popf
+        rcl     cx, 1
+        jcxz    @Skip3
 
-                    /$AC  (*         lodsb *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Odd *)
-                    /$AA  (*         stosb *)
-                /$EB/$01  (*         jmp     @Skip3 *)
-                    /$47  (*   @Odd: inc     di *)
-(*   @Skip3: *)
-                    /$58  (*         pop     ax *)
-                /$01/$C7  (*         add     di, ax *)
-                /$EB/$05  (*         jmp     @1 *)
+        lodsb
+        or      al, al
+        jz      @Odd
+        stosb
+        jmp     @Skip3
+  @Odd: inc     di
+  @Skip3:
+        pop     ax
+        add     di, ax
+        jmp     @1
 
-(*   @EndLine: *)
-                /$01/$DE  (*         add     si, bx *)
-            /$83/$C7/$5A  (*         add     di, BYTES_PER_LINE *)
+  @EndLine:
+        add     si, bx
+        add     di, BYTES_PER_LINE
 
-                    /$42  (*   @1:   inc     dx *)
-            /$3B/$56/$0E  (*         cmp     dx, Height *)
-                /$72/$BF  (*         jb      @Line *)
+  @1:   inc     dx
+        cmp     dx, Height
+        jb      @Line
 
-                    /$5F  (*         pop     di *)
+        pop     di
 
-                    /$58  (*         pop     ax *)
-                /$88/$E0  (*         mov     al, ah *)
-                /$B1/$04  (*         mov     cl, 4 *)
-                /$D2/$E0  (*         shl     al, cl *)
-                /$08/$C4  (*         or      ah, al                  { Mask for next byte } *)
-                /$D0/$C4  (*         rol     ah, 1                   { Bit mask for next plane } *)
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D7/$00  (*         adc     di, 0 *)
-                /$E2/$91  (*         loop    @Plane *)
+        pop     ax
+        mov     al, ah
+        mov     cl, 4
+        shl     al, cl
+        or      ah, al                  { Mask for next byte }
+        rol     ah, 1                   { Bit mask for next plane }
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     di, 0
+        loop    @Plane
 
-(*   @End: *)
-                    /$1F  (*         pop     ds *)
-);
+  @End:
+        pop     ds
+    end;
   end;
 
   procedure UpSideDown (XPos, YPos, Width, Height: Integer; var BitMap);
     { Draw an image on the screen up-side-down (NULL-bytes are ignored) }
   begin
-inline(
-                     $1E  (*         push    ds *)
+    asm
+        push    ds
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$46/$0E  (*         mov     ax, YPos *)
-            /$3D/$B6/$00  (*         cmp     ax, VIR_SCREEN_HEIGHT *)
-                /$72/$0F  (*         jb      @NotNeg *)
-    /$7E/$03/$E9/$90/$00  (*         jg      @End *)
-                /$89/$C3  (*         mov     bx, ax *)
-            /$03/$5E/$0A  (*         add     bx, Height *)
-    /$72/$03/$E9/$86/$00  (*         jnc     @End *)
-(*   @NotNeg: *)
-            /$03/$46/$0A  (*         add     ax, Height *)
-                    /$48  (*         dec     ax *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$7E/$10  (*         mov     di, XPos *)
-                /$89/$FB  (*         mov     bx, di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = (YPos * 80) + XPos / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
+        mov     ax, YPos
+        cmp     ax, VIR_SCREEN_HEIGHT
+        jb      @NotNeg
+        jg      @End
+        mov     bx, ax
+        add     bx, Height
+        jnc     @End
+  @NotNeg:
+        add     ax, Height
+        dec     ax
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     di, XPos
+        mov     bx, di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = (YPos * 80) + XPos / 4 }
+        add     di, PageOffset
 
-            /$C5/$76/$06  (*         lds     si, BitMap              { Point to bitmap } *)
+        lds     si, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-                /$88/$D9  (*         mov     cl, bl *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        mov     cl, bl
+        mov     ah, 1
+        shl     ah, cl
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
-                    /$50  (*         push    ax                      { Mask in AH } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
+        push    ax                      { Mask in AH }
 
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$57  (*         push    di *)
-            /$8B/$5E/$0C  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$01/$D8  (*         add     ax, bx                  { Space before next line } *)
-            /$8B/$56/$0A  (*         mov     dx, Height *)
-(*   @Line: *)
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        cld
+        push    di
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        add     ax, bx                  { Space before next line }
+        mov     dx, Height
+  @Line:
+        mov     cx, bx
+        shr     cx, 1
 
-                    /$50  (*         push    ax *)
-                    /$9C  (*         pushf *)
+        push    ax
+        pushf
 
-(*   @Pixel: *)
-                    /$AD  (*         lodsw *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Skip1 *)
-                    /$26  (*         seges *)
-                /$88/$05  (*         mov     [di], al *)
-(*   @Skip1: *)
-                    /$47  (*         inc     di *)
-                /$08/$E4  (*         or      ah, ah *)
-                /$74/$03  (*         jz      @Skip2 *)
-                    /$26  (*         seges *)
-                /$88/$25  (*         mov     [di], ah *)
-(*   @Skip2: *)
-                    /$47  (*         inc     di *)
-                /$E2/$ED  (*         loop    @Pixel *)
+  @Pixel:
+        lodsw
+        or      al, al
+        jz      @Skip1
+        seges
+        mov     [di], al
+  @Skip1:
+        inc     di
+        or      ah, ah
+        jz      @Skip2
+        seges
+        mov     [di], ah
+  @Skip2:
+        inc     di
+        loop    @Pixel
 
-                    /$9D  (*         popf *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$E3/$09  (*         jcxz    @Skip3 *)
+        popf
+        rcl     cx, 1
+        jcxz    @Skip3
 
-                    /$AC  (*         lodsb *)
-                /$08/$C0  (*         or      al, al *)
-                /$74/$03  (*         jz      @Odd *)
-                    /$AA  (*         stosb *)
-                /$EB/$01  (*         jmp     @Skip3 *)
-                    /$47  (*   @Odd: inc     di *)
-(*   @Skip3: *)
-                    /$58  (*         pop     ax *)
-                /$29/$C7  (*         sub     di, ax *)
-                    /$4A  (*         dec     dx *)
-                /$75/$D3  (*         jnz     @Line *)
+        lodsb
+        or      al, al
+        jz      @Odd
+        stosb
+        jmp     @Skip3
+  @Odd: inc     di
+  @Skip3:
+        pop     ax
+        sub     di, ax
+        dec     dx
+        jnz     @Line
 
-                    /$5F  (*         pop     di *)
+        pop     di
 
-                    /$58  (*         pop     ax *)
-                /$88/$E0  (*         mov     al, ah *)
-                /$B1/$04  (*         mov     cl, 4 *)
-                /$D2/$E0  (*         shl     al, cl *)
-                /$08/$C4  (*         or      ah, al                  { Mask for next byte } *)
-                /$D0/$C4  (*         rol     ah, 1                   { Bit mask for next plane } *)
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D7/$00  (*         adc     di, 0 *)
-                /$E2/$A4  (*         loop    @Plane *)
-(*   @End: *)
-                    /$1F  (*         pop     ds *)
-);
+        pop     ax
+        mov     al, ah
+        mov     cl, 4
+        shl     al, cl
+        or      ah, al                  { Mask for next byte }
+        rol     ah, 1                   { Bit mask for next plane }
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     di, 0
+        loop    @Plane
+  @End:
+        pop     ds
+    end;
   end;
 
   procedure PutImage (XPos, YPos, Width, Height: Integer; var BitMap);
     { Draw an image on the screen (NULL-bytes are NOT ignored) }
   begin
-inline(
-                     $1E  (*         push    ds *)
-                    /$06  (*         push    es *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+    asm
+        push    ds
+        push    es
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$46/$0E  (*         mov     ax, YPos *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$7E/$10  (*         mov     di, XPos *)
-                /$89/$FB  (*         mov     bx, di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = (YPos * 80) + XPos / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
+        mov     ax, YPos
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     di, XPos
+        mov     bx, di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = (YPos * 80) + XPos / 4 }
+        add     di, PageOffset
 
-            /$C5/$76/$06  (*         lds     si, BitMap              { Point to bitmap } *)
+        lds     si, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-                /$88/$D9  (*         mov     cl, bl *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        mov     cl, bl
+        mov     ah, 1
+        shl     ah, cl
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
-                    /$50  (*         push    ax                      { Mask in AH } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
+        push    ax                      { Mask in AH }
 
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$57  (*         push    di *)
-            /$8B/$5E/$0C  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$29/$D8  (*         sub     ax, bx                  { Space before next line } *)
-            /$8B/$56/$0A  (*         mov     dx, Height *)
-(*   @Line: *)
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$F3/$A5  (*         rep     movsw *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$F3/$A4  (*         rep     movsb *)
-                /$01/$C7  (*         add     di, ax *)
-                    /$4A  (*         dec     dx *)
-                /$75/$F1  (*         jnz     @Line *)
+        cld
+        push    di
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        sub     ax, bx                  { Space before next line }
+        mov     dx, Height
+  @Line:
+        mov     cx, bx
+        shr     cx, 1
+        rep     movsw
+        rcl     cx, 1
+        rep     movsb
+        add     di, ax
+        dec     dx
+        jnz     @Line
 
-                    /$5F  (*         pop     di *)
+        pop     di
 
-                    /$58  (*         pop     ax *)
-                /$88/$E0  (*         mov     al, ah *)
-                /$B1/$04  (*         mov     cl, 4 *)
-                /$D2/$E0  (*         shl     al, cl *)
-                /$08/$C4  (*         or      ah, al                  { Mask for next byte } *)
-                /$D0/$C4  (*         rol     ah, 1                   { Bit mask for next plane } *)
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D7/$00  (*         adc     di, 0 *)
-                /$E2/$C2  (*         loop    @Plane *)
+        pop     ax
+        mov     al, ah
+        mov     cl, 4
+        shl     al, cl
+        or      ah, al                  { Mask for next byte }
+        rol     ah, 1                   { Bit mask for next plane }
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     di, 0
+        loop    @Plane
 
 
-                    /$07  (*         pop     es *)
-                    /$1F  (*         pop     ds *)
-);
+        pop     es
+        pop     ds
+    end;
   end;
 
 
   procedure GetImage (XPos, YPos, Width, Height: Integer; var BitMap);
   begin
-inline(
-                     $1E  (*         push    ds *)
-                    /$06  (*         push    es *)
+    asm
+        push    ds
+        push    es
 
-        /$8B/$0E/PageOffset  (*         mov     cx, PageOffset *)
+        mov     cx, PageOffset
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$D8  (*         mov     ds, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     ds, ax
 
-            /$8B/$46/$0E  (*         mov     ax, YPos *)
-            /$BB/$5A/$00  (*         mov     bx, BYTES_PER_LINE *)
-                /$F7/$E3  (*         mul     bx *)
-            /$8B/$76/$10  (*         mov     si, XPos *)
-                /$89/$F3  (*         mov     bx, si *)
-                /$D1/$EE  (*         shr     si, 1 *)
-                /$D1/$EE  (*         shr     si, 1 *)
-                /$01/$C6  (*         add     si, ax                  { SI = (YPos * 80) + XPos / 4 } *)
-                /$01/$CE  (*         add     si, cx *)
+        mov     ax, YPos
+        mov     bx, BYTES_PER_LINE
+        mul     bx
+        mov     si, XPos
+        mov     bx, si
+        shr     si, 1
+        shr     si, 1
+        add     si, ax                  { SI = (YPos * 80) + XPos / 4 }
+        add     si, cx
 
-            /$C4/$7E/$06  (*         les     di, BitMap              { Point to bitmap } *)
+        les     di, BitMap              { Point to bitmap }
 
-            /$80/$E3/$03  (*         and     bl, 3 *)
-            /$80/$EB/$04  (*         sub     bl, 4 *)
-            /$B9/$04/$00  (*         mov     cx, 4                   { 4 planes } *)
+        and     bl, 3
+        sub     bl, 4
+        mov     cx, 4                   { 4 planes }
 
-(*   @Plane: *)
-                    /$53  (*         push    bx *)
-                    /$51  (*         push    cx                      { Planes to go } *)
+  @Plane:
+        push    bx
+        push    cx                      { Planes to go }
 
-                /$88/$DC  (*         mov     ah, bl *)
-            /$80/$E4/$03  (*         and     ah, 3 *)
-                /$B0/$04  (*         mov     al, READ_MAP *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     ah, bl
+        and     ah, 3
+        mov     al, READ_MAP
+        mov     dx, GC_INDEX
+        out     dx, ax
 
-                    /$FC  (*         cld *)
-                    /$56  (*         push    si *)
-            /$8B/$5E/$0C  (*         mov     bx, Width *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-                /$D1/$EB  (*         shr     bx, 1 *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$29/$D8  (*         sub     ax, bx                  { Space before next line } *)
-            /$8B/$56/$0A  (*         mov     dx, Height *)
-(*   @Line: *)
-                /$89/$D9  (*         mov     cx, bx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$F3/$A5  (*         rep     movsw *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$F3/$A4  (*         rep     movsb *)
-                /$01/$C6  (*         add     si, ax *)
-                    /$4A  (*         dec     dx *)
-                /$75/$F1  (*         jnz     @Line *)
+        cld
+        push    si
+        mov     bx, Width
+        shr     bx, 1
+        shr     bx, 1
+        mov     ax, BYTES_PER_LINE
+        sub     ax, bx                  { Space before next line }
+        mov     dx, Height
+  @Line:
+        mov     cx, bx
+        shr     cx, 1
+        rep     movsw
+        rcl     cx, 1
+        rep     movsb
+        add     si, ax
+        dec     dx
+        jnz     @Line
 
-                    /$5E  (*         pop     si *)
+        pop     si
 
-                    /$59  (*         pop     cx                      { Planes } *)
-                    /$5B  (*         pop     bx *)
-                /$FE/$C3  (*         inc     bl                      { Still in the same byte? } *)
-            /$83/$D6/$00  (*         adc     si, 0 *)
-                /$E2/$C9  (*         loop    @Plane *)
+        pop     cx                      { Planes }
+        pop     bx
+        inc     bl                      { Still in the same byte? }
+        adc     si, 0
+        loop    @Plane
 
 
-                    /$07  (*         pop     es *)
-                    /$1F  (*         pop     ds *)
-);
+        pop     es
+        pop     ds
+    end;
   end;
 
   procedure Fill (X, Y, W, H: Integer; Attr: Integer);
     { Fills an area on the screen with Attr }
   begin
-inline(
-             $B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+    asm
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-                    /$FC  (*         cld *)
-            /$8B/$56/$0C  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$7E/$0E  (*         mov     di, X *)
-                    /$57  (*         push    di *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax                  { DI = Y * (width / 4) + X / 4 } *)
-        /$03/$3E/PageOffset  (*         add     di, PageOffset *)
-                    /$59  (*         pop     cx *)
-        /$81/$E1/$03/$00  (*         and     cx, 3                   { CX = X mod 4 } *)
+        cld
+        mov     dx, Y
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        mov     di, X
+        push    di
+        shr     di, 1
+        shr     di, 1
+        add     di, ax                  { DI = Y * (width / 4) + X / 4 }
+        add     di, PageOffset
+        pop     cx
+        and     cx, 3                   { CX = X mod 4 }
 
-                /$B4/$0F  (*         mov     ah, 0Fh *)
-                /$D2/$E4  (*         shl     ah, cl *)
-            /$80/$E4/$0F  (*         and     ah, 0Fh *)
+        mov     ah, 0Fh
+        shl     ah, cl
+        and     ah, 0Fh
 
-            /$8B/$76/$08  (*         mov     si, H *)
-                /$09/$F6  (*         or      si, si *)
-                /$74/$79  (*         jz      @End                    { Height 0 } *)
-            /$8A/$7E/$06  (*         mov     bh, byte ptr Attr *)
-            /$8B/$56/$0A  (*         mov     dx, W *)
-                /$09/$D2  (*         or      dx, dx *)
-                /$74/$6F  (*         jz      @End                    { Width 0 } *)
-                /$01/$D1  (*         add     cx, dx *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$83/$E9/$04  (*         sub     cx, 4 *)
-                /$72/$45  (*         jc      @2 *)
-            /$F6/$C1/$03  (*         test    cl, 3h *)
-                /$75/$03  (*         jnz     @0 *)
-            /$83/$E9/$04  (*         sub     cx, 4 *)
-                /$72/$3B  (*   @0:   jc      @2 *)
-                    /$EF  (*         out     dx, ax *)
+        mov     si, H
+        or      si, si
+        jz      @End                    { Height 0 }
+        mov     bh, byte ptr Attr
+        mov     dx, W
+        or      dx, dx
+        jz      @End                    { Width 0 }
+        add     cx, dx
+        mov     dx, SC_INDEX
+        mov     al, MAP_MASK
+        sub     cx, 4
+        jc      @2
+        test    cl, 3h
+        jnz     @0
+        sub     cx, 4
+  @0:   jc      @2
+        out     dx, ax
 
-                /$88/$F8  (*         mov     al, bh                  { Attr } *)
-                    /$56  (*         push    si                      { Height } *)
-                    /$57  (*         push    di *)
-                    /$AA  (*   @4:   stosb                           { Left vertical line } *)
-            /$83/$C7/$59  (*         add     di, BYTES_PER_LINE - 1 *)
-                    /$4E  (*         dec     si *)
-                /$75/$F9  (*         jnz     @4 *)
-                    /$5F  (*         pop     di *)
-                    /$47  (*         inc     di *)
-                    /$5E  (*         pop     si *)
+        mov     al, bh                  { Attr }
+        push    si                      { Height }
+        push    di
+  @4:   stosb                           { Left vertical line }
+        add     di, BYTES_PER_LINE - 1
+        dec     si
+        jnz     @4
+        pop     di
+        inc     di
+        pop     si
 
-                    /$50  (*         push    ax *)
-            /$B8/$02/$0F  (*         mov     ax, 0F00h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-                    /$58  (*         pop     ax *)
+        push    ax
+        mov     ax, 0F00h + MAP_MASK
+        out     dx, ax
+        pop     ax
 
-                /$88/$C4  (*         mov     ah, al                  { Attr } *)
-                    /$51  (*         push    cx                      { Width } *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        mov     ah, al                  { Attr }
+        push    cx                      { Width }
+        shr     cx, 1
+        shr     cx, 1
 
-                    /$56  (*         push    si                      { Height } *)
-                    /$57  (*         push    di *)
-                    /$57  (*   @5:   push    di *)
-                    /$51  (*         push    cx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$F3/$AB  (*         rep     stosw                   { Fill middle part } *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$F3/$AA  (*         rep     stosb *)
-                    /$59  (*         pop     cx *)
-                    /$5F  (*         pop     di *)
-            /$83/$C7/$5A  (*         add     di, BYTES_PER_LINE *)
-                    /$4E  (*         dec     si *)
-                /$75/$EE  (*         jnz     @5 *)
-                    /$5F  (*         pop     di *)
-                /$01/$CF  (*         add     di, cx                  { Point to last strip } *)
-                    /$5E  (*         pop     si                      { Height } *)
+        push    si                      { Height }
+        push    di
+  @5:   push    di
+        push    cx
+        shr     cx, 1
+        rep     stosw                   { Fill middle part }
+        rcl     cx, 1
+        rep     stosb
+        pop     cx
+        pop     di
+        add     di, BYTES_PER_LINE
+        dec     si
+        jnz     @5
+        pop     di
+        add     di, cx                  { Point to last strip }
+        pop     si                      { Height }
 
-                    /$59  (*         pop     cx                      { Width } *)
-                /$88/$C7  (*         mov     bh, al                  { Attr } *)
-                /$B3/$0F  (*         mov     bl, 0Fh                 { Mask } *)
-                /$EB/$02  (*         jmp     @3 *)
+        pop     cx                      { Width }
+        mov     bh, al                  { Attr }
+        mov     bl, 0Fh                 { Mask }
+        jmp     @3
 
-                /$88/$E3  (*   @2:   mov     bl, ah                  { Begin and end in one single byte } *)
+  @2:   mov     bl, ah                  { Begin and end in one single byte }
 
-            /$80/$E1/$03  (*   @3:   and     cl, 3 *)
-                /$B4/$00  (*         mov     ah, 0 *)
-                /$D0/$E4  (*   @1:   shl     ah, 1 *)
-            /$80/$C4/$01  (*         add     ah, 1 *)
-                /$FE/$C9  (*         dec     cl *)
-                /$75/$F7  (*         jnz     @1 *)
+  @3:   and     cl, 3
+        mov     ah, 0
+  @1:   shl     ah, 1
+        add     ah, 1
+        dec     cl
+        jnz     @1
 
-                /$20/$DC  (*         and     ah, bl                  { Use both masks } *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-                /$88/$F8  (*         mov     al, bh                  { Attr } *)
-                    /$AA  (*   @6:   stosb                           { Draw right vertical line } *)
-            /$83/$C7/$59  (*         add     di, BYTES_PER_LINE - 1 *)
-                    /$4E  (*         dec     si *)
-                /$75/$F9  (*         jnz     @6 *)
-(*   @End: *)
-);
+        and     ah, bl                  { Use both masks }
+        mov     al, MAP_MASK
+        out     dx, ax
+        mov     al, bh                  { Attr }
+  @6:   stosb                           { Draw right vertical line }
+        add     di, BYTES_PER_LINE - 1
+        dec     si
+        jnz     @6
+  @End:
+    end;
   end;
 
   procedure SetPalette (Color, Red, Green, Blue: Byte);
   begin
-inline(
-             $BA/$C8/$03  (*           mov     dx, 03C8h       { DAC Write Address Register } *)
-            /$8A/$46/$0C  (*           mov     al, Color *)
-                    /$EE  (*           out     dx, al *)
-                    /$42  (*           inc     dx *)
-            /$8A/$46/$0A  (*           mov     al, Red *)
-                    /$EE  (*           out     dx, al *)
-            /$8A/$46/$08  (*           mov     al, Green *)
-                    /$EE  (*           out     dx, al *)
-            /$8A/$46/$06  (*           mov     al, Blue *)
-                    /$EE  (*           out     dx, al *)
-);
+    asm
+          mov     dx, 03C8h       { DAC Write Address Register }
+          mov     al, Color
+          out     dx, al
+          inc     dx
+          mov     al, Red
+          out     dx, al
+          mov     al, Green
+          out     dx, al
+          mov     al, Blue
+          out     dx, al
+    end;
   end;
 
   procedure ReadPalette (var NewPalette);
     { Read whole palette }
   begin
-inline(
-                     $1E  (*         push    ds *)
-            /$C5/$76/$06  (*         lds     si, NewPalette *)
-            /$BA/$C8/$03  (*         mov     dx, 3C8h        { VGA pel address } *)
-                /$B0/$00  (*         mov     al, 0 *)
-                    /$FA  (*         cli *)
-                    /$FC  (*         cld *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-            /$B9/$00/$03  (*         mov     cx, 3 * 100h *)
-                    /$AC  (*   @1:   lodsb *)
-                    /$EE  (*         out     dx, al *)
-                    /$49  (*         dec     cx *)
-                /$75/$FB  (*         jnz     @1 *)
-                    /$FB  (*         sti *)
-                    /$1F  (*         pop     ds *)
+    asm
+        push    ds
+        lds     si, NewPalette
+        mov     dx, 3C8h        { VGA pel address }
+        mov     al, 0
+        cli
+        cld
+        out     dx, al
+        inc     dx
+        mov     cx, 3 * 100h
+  @1:   lodsb
+        out     dx, al
+        dec     cx
+        jnz     @1
+        sti
+        pop     ds
 
-(* {          push    es *)
-(*           push    bp *)
-(*           mov     ax, 1012h *)
-(*           xor     bx, bx *)
-(*           mov     cx, 256 *)
-(*           les     dx, NewPalette *)
-(*           int     10h *)
-(*           pop     bp *)
-(*           pop     es   } *)
-);
+{          push    es
+          push    bp
+          mov     ax, 1012h
+          xor     bx, bx
+          mov     cx, 256
+          les     dx, NewPalette
+          int     10h
+          pop     bp
+          pop     es   }
+    end;
   end;
 
-  procedure ClearPalette;
-  begin
-inline(
-                     $FA  (*         cli *)
-            /$BA/$C8/$03  (*         mov     dx, 3C8h        { VGA pel address } *)
-                /$B0/$00  (*         mov     al, 0 *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-            /$B9/$00/$03  (*         mov     cx, 3 * 100h *)
-                    /$EE  (*   @1:   out     dx, al *)
-                    /$49  (*         dec     cx *)
-                /$75/$FC  (*         jnz     @1 *)
-                    /$FB  (*         sti *)
-);
+  procedure ClearPalette; assembler;
+  asm
+        cli
+        mov     dx, 3C8h        { VGA pel address }
+        mov     al, 0
+        out     dx, al
+        inc     dx
+        mov     cx, 3 * 100h
+  @1:   out     dx, al
+        dec     cx
+        jnz     @1
+        sti
   end;
 
 
@@ -1284,87 +1267,87 @@ inline(
     if not ((Y + H >= 0) and (Y < 200)) then
       Exit;
     StackPointer := Stack [Page];
-inline(
-         $8B/$1E/PageOffset  (*         mov     bx, PageOffset *)
-            /$8B/$7E/$FC  (*         mov     di, StackPointer *)
-                    /$1E  (*         push    ds *)
-                    /$06  (*         push    es *)
+    asm
+        mov     bx, PageOffset
+        mov     di, StackPointer
+        push    ds
+        push    es
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$D8  (*         mov     ds, ax *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     ds, ax
+        mov     es, ax
 
-                    /$FC  (*         cld *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-            /$B8/$02/$01  (*         mov     ax, 0100h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-            /$8B/$46/$0C  (*         mov     ax, X *)
-                /$89/$05  (*         mov     [di], ax *)
-            /$B8/$02/$02  (*         mov     ax, 0200h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-            /$8B/$46/$0A  (*         mov     ax, Y *)
-                /$89/$05  (*         mov     [di], ax *)
-            /$B8/$02/$04  (*         mov     ax, 0400h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-            /$8B/$46/$08  (*         mov     ax, W *)
-                /$89/$05  (*         mov     [di], ax *)
-            /$B8/$02/$08  (*         mov     ax, 0800h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
-            /$8B/$46/$06  (*         mov     ax, H *)
-                    /$AB  (*         stosw *)
-                /$B0/$4D  (*         mov     al, 'M' *)
-                    /$AA  (*         stosb *)
+        cld
+        mov     dx, SC_INDEX
+        mov     ax, 0100h + MAP_MASK
+        out     dx, ax
+        mov     ax, X
+        mov     [di], ax
+        mov     ax, 0200h + MAP_MASK
+        out     dx, ax
+        mov     ax, Y
+        mov     [di], ax
+        mov     ax, 0400h + MAP_MASK
+        out     dx, ax
+        mov     ax, W
+        mov     [di], ax
+        mov     ax, 0800h + MAP_MASK
+        out     dx, ax
+        mov     ax, H
+        stosw
+        mov     al, 'M'
+        stosb
 
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                /$B0/$05  (*         mov     al, GRAPHICS_MODE *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                    /$50  (*         push    ax *)
-                /$B0/$41  (*         mov     al, 41h *)
-                    /$EE  (*         out     dx, al *)
+        mov     dx, GC_INDEX
+        mov     al, GRAPHICS_MODE
+        out     dx, al
+        inc     dx
+        in      al, dx
+        push    ax
+        mov     al, 41h
+        out     dx, al
 
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-            /$B8/$02/$0F  (*         mov     ax, 0F00h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
+        mov     dx, SC_INDEX
+        mov     ax, 0F00h + MAP_MASK
+        out     dx, ax
 
-            /$B8/$04/$00  (*         mov     ax, READ_MAP *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     ax, READ_MAP
+        mov     dx, GC_INDEX
+        out     dx, ax
 
-            /$8B/$56/$0A  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$76/$0C  (*         mov     si, X *)
-                /$D1/$EE  (*         shr     si, 1 *)
-                /$D1/$EE  (*         shr     si, 1 *)
-                /$01/$C6  (*         add     si, ax *)
-                /$01/$DE  (*         add     si, bx *)
+        mov     dx, Y
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        mov     si, X
+        shr     si, 1
+        shr     si, 1
+        add     si, ax
+        add     si, bx
 
-            /$8B/$4E/$08  (*         mov     cx, W *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        mov     cx, W
+        shr     cx, 1
+        shr     cx, 1
 
-            /$8B/$5E/$06  (*         mov     bx, H *)
+        mov     bx, H
 
-                    /$51  (*   @1:   push    cx *)
-                    /$F3  (*         rep *)
-                    /$A4  (*         movsb                   { copy 4 pixels } *)
-                    /$59  (*         pop     cx *)
-            /$83/$C6/$5A  (*         add     si, BYTES_PER_LINE *)
-                /$29/$CE  (*         sub     si, cx *)
-                    /$4B  (*         dec     bx *)
-                /$75/$F4  (*         jnz     @1 *)
+  @1:   push    cx
+        rep
+        movsb                   { copy 4 pixels }
+        pop     cx
+        add     si, BYTES_PER_LINE
+        sub     si, cx
+        dec     bx
+        jnz     @1
 
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$58  (*         pop     ax *)
-                /$88/$C4  (*         mov     ah, al *)
-                /$B0/$05  (*         mov     al, GRAPHICS_MODE *)
-                    /$EF  (*         out     dx, ax *)
+        mov     dx, GC_INDEX
+        pop     ax
+        mov     ah, al
+        mov     al, GRAPHICS_MODE
+        out     dx, ax
 
-                    /$07  (*         pop     es *)
-                    /$1F  (*         pop     ds *)
-);
+        pop     es
+        pop     ds
+    end;
     PushBackGr := Stack [Page];
     Inc (Stack [Page], W * H + 8);
   end;
@@ -1375,93 +1358,93 @@ inline(
   begin
     if Address = 0 then
       Exit;
-inline(
-         $8B/$1E/PageOffset  (*         mov     bx, PageOffset *)
-            /$8B/$76/$06  (*         mov     si, Address *)
+    asm
+        mov     bx, PageOffset
+        mov     si, Address
 
-                    /$1E  (*         push    ds *)
-                    /$06  (*         push    es *)
+        push    ds
+        push    es
 
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$D8  (*         mov     ds, ax *)
-                /$8E/$C0  (*         mov     es, ax *)
+        mov     ax, VGA_SEGMENT
+        mov     ds, ax
+        mov     es, ax
 
-                    /$FC  (*         cld *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-            /$B8/$04/$00  (*         mov     ax, 0000h + READ_MAP *)
-                    /$EF  (*         out     dx, ax *)
-                /$8B/$04  (*         mov     ax, [si] *)
-            /$89/$46/$FE  (*         mov     X, ax *)
-            /$B8/$04/$01  (*         mov     ax, 0100h + READ_MAP *)
-                    /$EF  (*         out     dx, ax *)
-                /$8B/$04  (*         mov     ax, [si] *)
-            /$89/$46/$FC  (*         mov     Y, ax *)
-            /$B8/$04/$02  (*         mov     ax, 0200h + READ_MAP *)
-                    /$EF  (*         out     dx, ax *)
-                /$8B/$04  (*         mov     ax, [si] *)
-            /$89/$46/$FA  (*         mov     W, ax *)
-            /$B8/$04/$03  (*         mov     ax, 0300h + READ_MAP *)
-                    /$EF  (*         out     dx, ax *)
-                    /$AD  (*         lodsw *)
-            /$89/$46/$F8  (*         mov     H, ax *)
-                    /$AC  (*         lodsb *)
-                /$3C/$4D  (*         cmp     al, 'M' *)
-                /$74/$03  (*         jz      @@1 *)
-(* {$IFDEF DEBUG} *)
-                    /$CC  (*         int     3 *)
-(* {$ENDIF} *)
-                /$EB/$4C  (*         jmp     @End *)
-(*     @@1: *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                /$B0/$05  (*         mov     al, GRAPHICS_MODE *)
-                    /$EE  (*         out     dx, al *)
-                    /$42  (*         inc     dx *)
-                    /$EC  (*         in      al, dx *)
-                    /$50  (*         push    ax *)
-                /$B0/$41  (*         mov     al, 41h *)
-                    /$EE  (*         out     dx, al *)
+        cld
+        mov     dx, GC_INDEX
+        mov     ax, 0000h + READ_MAP
+        out     dx, ax
+        mov     ax, [si]
+        mov     X, ax
+        mov     ax, 0100h + READ_MAP
+        out     dx, ax
+        mov     ax, [si]
+        mov     Y, ax
+        mov     ax, 0200h + READ_MAP
+        out     dx, ax
+        mov     ax, [si]
+        mov     W, ax
+        mov     ax, 0300h + READ_MAP
+        out     dx, ax
+        lodsw
+        mov     H, ax
+        lodsb
+        cmp     al, 'M'
+        jz      @@1
+{$IFDEF DEBUG}
+        int     3
+{$ENDIF}
+        jmp     @End
+    @@1:
+        mov     dx, GC_INDEX
+        mov     al, GRAPHICS_MODE
+        out     dx, al
+        inc     dx
+        in      al, dx
+        push    ax
+        mov     al, 41h
+        out     dx, al
 
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-            /$B8/$02/$0F  (*         mov     ax, 0F00h + MAP_MASK *)
-                    /$EF  (*         out     dx, ax *)
+        mov     dx, SC_INDEX
+        mov     ax, 0F00h + MAP_MASK
+        out     dx, ax
 
-            /$B8/$04/$00  (*         mov     ax, READ_MAP *)
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
+        mov     ax, READ_MAP
+        mov     dx, GC_INDEX
+        out     dx, ax
 
-            /$8B/$56/$FC  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$7E/$FE  (*         mov     di, X *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax *)
-                /$01/$DF  (*         add     di, bx *)
+        mov     dx, Y
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        mov     di, X
+        shr     di, 1
+        shr     di, 1
+        add     di, ax
+        add     di, bx
 
-            /$8B/$4E/$FA  (*         mov     cx, W *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        mov     cx, W
+        shr     cx, 1
+        shr     cx, 1
 
-            /$8B/$5E/$F8  (*         mov     bx, H *)
+        mov     bx, H
 
-                    /$51  (*   @1:   push    cx *)
-                    /$F3  (*         rep *)
-                    /$A4  (*         movsb                   { copy 4 pixels } *)
-                    /$59  (*         pop     cx *)
-            /$83/$C7/$5A  (*         add     di, BYTES_PER_LINE *)
-                /$29/$CF  (*         sub     di, cx *)
-                    /$4B  (*         dec     bx *)
-                /$75/$F4  (*         jnz     @1 *)
+  @1:   push    cx
+        rep
+        movsb                   { copy 4 pixels }
+        pop     cx
+        add     di, BYTES_PER_LINE
+        sub     di, cx
+        dec     bx
+        jnz     @1
 
-            /$BA/$CE/$03  (*         mov     dx, GC_INDEX *)
-                    /$58  (*         pop     ax *)
-                /$88/$C4  (*         mov     ah, al *)
-                /$B0/$05  (*         mov     al, GRAPHICS_MODE *)
-                    /$EF  (*         out     dx, ax *)
+        mov     dx, GC_INDEX
+        pop     ax
+        mov     ah, al
+        mov     al, GRAPHICS_MODE
+        out     dx, ax
 
-                    /$07  (*   @end: pop     es *)
-                    /$1F  (*         pop     ds *)
-);
+  @end: pop     es
+        pop     ds
+    end;
   end;
 
   procedure DrawBitmap (X, Y: Integer; var BitMap; Attr: Byte);
@@ -1470,81 +1453,81 @@ inline(
     W, H, PageOffset: Integer;
   begin
     PageOffset := GetPageOffset;
-inline(
-                     $06  (*         push    es *)
-                    /$1E  (*         push    ds *)
+    asm
+        push    es
+        push    ds
 
-            /$C5/$76/$08  (*         lds     si, BitMap *)
-                /$B4/$00  (*         mov     ah, 0 *)
-                    /$FC  (*         cld *)
-                    /$AC  (*         lodsb *)
-            /$89/$46/$FE  (*         mov     W, ax *)
-                    /$AC  (*         lodsb *)
-            /$89/$46/$FC  (*         mov     H, ax *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+        lds     si, BitMap
+        mov     ah, 0
+        cld
+        lodsb
+        mov     W, ax
+        lodsb
+        mov     H, ax
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-                /$B3/$00  (*         mov     bl, 0 *)
-            /$8B/$4E/$FC  (*         mov     cx, H *)
-            /$8B/$56/$0C  (*         mov     dx, Y *)
-                    /$51  (*     @1: push    cx *)
-            /$8B/$4E/$0E  (*         mov     cx, X *)
-            /$8B/$7E/$FE  (*         mov     di, W *)
-                    /$51  (*     @2: push    cx *)
-                    /$52  (*         push    dx *)
-                /$08/$DB  (*         or      bl, bl *)
-                /$75/$05  (*         jnz     @3 *)
-                    /$AC  (*         lodsb *)
-                /$88/$C7  (*         mov     bh, al *)
-                /$B3/$08  (*         mov     bl, 8 *)
-                /$FE/$CB  (*     @3: dec     bl *)
-                /$D0/$EF  (*         shr     bh, 1 *)
-                /$73/$2B  (*         jnc     @4 *)
+        mov     bl, 0
+        mov     cx, H
+        mov     dx, Y
+    @1: push    cx
+        mov     cx, X
+        mov     di, W
+    @2: push    cx
+        push    dx
+        or      bl, bl
+        jnz     @3
+        lodsb
+        mov     bh, al
+        mov     bl, 8
+    @3: dec     bl
+        shr     bh, 1
+        jnc     @4
 
-                    /$56  (*         push    si *)
-                    /$57  (*         push    di *)
-                    /$53  (*         push    bx *)
-            /$8A/$46/$06  (*         mov     al, Attr *)
+        push    si
+        push    di
+        push    bx
+        mov     al, Attr
 
-(*     @PutPixel: *)
-(*       { CX = X, DX = Y, AL = Attr } *)
-                    /$50  (*         push    ax *)
-            /$B8/$5A/$00  (*         mov     ax, BYTES_PER_LINE *)
-                /$F7/$E2  (*         mul     dx *)
-                    /$51  (*         push    cx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$01/$C8  (*         add     ax, cx *)
-                /$89/$C7  (*         mov     di, ax *)
-            /$03/$7E/$FA  (*         add     di, PageOffset *)
-                    /$59  (*         pop     cx *)
-            /$80/$E1/$03  (*         and     cl, 3 *)
-                /$B4/$01  (*         mov     ah, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
-                    /$58  (*         pop     ax *)
-                    /$AA  (*         stosb *)
+    @PutPixel:
+      { CX = X, DX = Y, AL = Attr }
+        push    ax
+        mov     ax, BYTES_PER_LINE
+        mul     dx
+        push    cx
+        shr     cx, 1
+        shr     cx, 1
+        add     ax, cx
+        mov     di, ax
+        add     di, PageOffset
+        pop     cx
+        and     cl, 3
+        mov     ah, 1
+        shl     ah, cl
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
+        pop     ax
+        stosb
 
-                    /$5B  (*         pop     bx *)
-                    /$5F  (*         pop     di *)
-                    /$5E  (*         pop     si *)
+        pop     bx
+        pop     di
+        pop     si
 
-(*     @4: *)
-                    /$5A  (*         pop     dx *)
-                    /$59  (*         pop     cx *)
-                    /$41  (*         inc     cx *)
-                    /$4F  (*         dec     di *)
-                /$75/$BE  (*         jnz     @2 *)
+    @4:
+        pop     dx
+        pop     cx
+        inc     cx
+        dec     di
+        jnz     @2
 
-                    /$42  (*         inc     dx *)
-                    /$59  (*         pop     cx *)
-                    /$49  (*         dec     cx *)
-                /$75/$B2  (*         jnz     @1 *)
-                    /$1F  (*         pop     ds *)
-                    /$07  (*         pop     es *)
-);
+        inc     dx
+        pop     cx
+        dec     cx
+        jnz     @1
+        pop     ds
+        pop     es
+    end;
   end;
 
 begin

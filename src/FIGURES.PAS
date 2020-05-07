@@ -13,9 +13,9 @@ interface
     N2 = 13;
 
   var
-    FigList: array [1 .. N1, 1 .. N2] of ImageBuffer;
+    FigList: Array [1 .. N1, 1 .. N2] of ImageBuffer;
 
-    Bricks: array [0 .. 3] of ImageBuffer;
+    Bricks: Array [0 .. 3] of ImageBuffer;
 
   var
     Sky: Byte;
@@ -140,84 +140,84 @@ implementation
 
   procedure ReColor (P1, P2: Pointer; C: Byte);
   begin
-inline(
-                     $1E  (*           push    ds *)
-                    /$06  (*           push    es *)
-            /$C5/$76/$0C  (*           lds     si, P1 *)
-            /$C4/$7E/$08  (*           les     di, P2 *)
-                    /$FC  (*           cld *)
-            /$B9/$0E/$00  (*           mov     cx, H *)
-                    /$51  (*   A3(@1:     push    cx *)
-            /$B9/$14/$00  (*           mov     cx, W *)
-                    /$AC  (*   A3(@2:     lodsb *)
-                /$3C/$10  (*           cmp     al, $10 *)
-                /$76/$05  (*           jbe     A3(@3 *)
-                /$24/$07  (*           and     al, 07h *)
-            /$02/$46/$06  (*           add     al, C *)
+    asm
+          push    ds
+          push    es
+          lds     si, P1
+          les     di, P2
+          cld
+          mov     cx, H
+  @1:     push    cx
+          mov     cx, W
+  @2:     lodsb
+          cmp     al, $10
+          jbe     @3
+          and     al, 07h
+          add     al, C
 
-                    /$AA  (*   A3(@3:     stosb *)
-                /$E2/$F3  (*           loop    A3(@2 *)
-                    /$59  (*           pop     cx *)
-                /$E2/$EC  (*           loop    A3(@1 *)
-                    /$07  (*           pop     es *)
-                    /$1F  (*           pop     ds *)
-);
+  @3:     stosb
+          loop    @2
+          pop     cx
+          loop    @1
+          pop     es
+          pop     ds
+    end;
   end;
 
   procedure ReColor2 (P1, P2: Pointer; C1, C2: Byte);
   begin
-inline(
-                     $1E  (*           push    ds *)
-                    /$06  (*           push    es *)
-            /$C5/$76/$0E  (*           lds     si, P1 *)
-            /$C4/$7E/$0A  (*           les     di, P2 *)
-                    /$FC  (*           cld *)
-            /$B9/$0E/$00  (*           mov     cx, H *)
-                    /$51  (*   A3(@1:     push    cx *)
-            /$B9/$14/$00  (*           mov     cx, W *)
-                    /$AC  (*   A3(@2:     lodsb *)
-                /$3C/$10  (*           cmp     al, $10 *)
-                /$76/$10  (*           jbe     A3(@3 *)
-                /$24/$0F  (*           and     al, 0Fh *)
-                /$3C/$08  (*           cmp     al, 8 *)
-                /$72/$07  (*           jb      A3(@UseC1 *)
-                /$24/$07  (*           and     al, 7 *)
-            /$02/$46/$06  (*           add     al, C2 *)
-                /$EB/$03  (*           jmp     A3(@3 *)
-(*   A3(@UseC1: *)
-            /$02/$46/$08  (*           add     al, C1 *)
+    asm
+          push    ds
+          push    es
+          lds     si, P1
+          les     di, P2
+          cld
+          mov     cx, H
+  @1:     push    cx
+          mov     cx, W
+  @2:     lodsb
+          cmp     al, $10
+          jbe     @3
+          and     al, 0Fh
+          cmp     al, 8
+          jb      @UseC1
+          and     al, 7
+          add     al, C2
+          jmp     @3
+  @UseC1:
+          add     al, C1
 
-                    /$AA  (*   A3(@3:     stosb *)
-                /$E2/$E8  (*           loop    A3(@2 *)
-                    /$59  (*           pop     cx *)
-                /$E2/$E1  (*           loop    A3(@1 *)
-                    /$07  (*           pop     es *)
-                    /$1F  (*           pop     ds *)
-);
+  @3:     stosb
+          loop    @2
+          pop     cx
+          loop    @1
+          pop     es
+          pop     ds
+    end;
   end;
 
   procedure Replace (P1, P2: Pointer; N1, N2: Byte);
   begin
-inline(
-                     $1E  (*           push    ds *)
-                    /$06  (*           push    es *)
-            /$C5/$76/$0E  (*           lds     si, P1 *)
-            /$C4/$7E/$0A  (*           les     di, P2 *)
-                    /$FC  (*           cld *)
-            /$B9/$0E/$00  (*           mov     cx, H *)
-                    /$51  (*   A3(@1:     push    cx *)
-            /$B9/$14/$00  (*           mov     cx, W *)
-                    /$AC  (*   A3(@2:     lodsb *)
-            /$3A/$46/$08  (*           cmp     al, N1 *)
-                /$75/$03  (*           jnz     A3(@3 *)
-            /$8A/$46/$06  (*           mov     al, N2 *)
-                    /$AA  (*   A3(@3:     stosb *)
-                /$E2/$F4  (*           loop    A3(@2 *)
-                    /$59  (*           pop     cx *)
-                /$E2/$ED  (*           loop    A3(@1 *)
-                    /$07  (*           pop     es *)
-                    /$1F  (*           pop     ds *)
-);
+    asm
+          push    ds
+          push    es
+          lds     si, P1
+          les     di, P2
+          cld
+          mov     cx, H
+  @1:     push    cx
+          mov     cx, W
+  @2:     lodsb
+          cmp     al, N1
+          jnz     @3
+          mov     al, N2
+  @3:     stosb
+          loop    @2
+          pop     cx
+          loop    @1
+          pop     es
+          pop     ds
+    end;
   end;
 
   procedure Mirror (P1, P2: Pointer);
@@ -247,27 +247,27 @@ inline(
 
   procedure Rotate (P1, P2: Pointer);
   begin
-inline(
-                     $1E  (*         push    ds *)
-                    /$06  (*         push    es *)
-            /$C5/$76/$0A  (*         lds     si, P1 *)
-            /$C4/$7E/$06  (*         les     di, P2 *)
-                    /$FC  (*         cld *)
-        /$81/$C6/$18/$01  (*         add     si, W * H *)
-                    /$4E  (*         dec     si *)
-            /$B9/$0E/$00  (*         mov     cx, H *)
-                    /$51  (*   A3(@1:   push    cx *)
-            /$B9/$14/$00  (*         mov     cx, W *)
-                    /$FD  (*   A3(@2:   std *)
-                    /$AC  (*         lodsb *)
-                    /$FC  (*         cld *)
-                    /$AA  (*         stosb *)
-                /$E2/$FA  (*         loop    A3(@2 *)
-                    /$59  (*         pop     cx *)
-                /$E2/$F3  (*         loop    A3(@1 *)
-                    /$07  (*         pop     es *)
-                    /$1F  (*         pop     ds *)
-);
+    asm
+        push    ds
+        push    es
+        lds     si, P1
+        les     di, P2
+        cld
+        add     si, W * H
+        dec     si
+        mov     cx, H
+  @1:   push    cx
+        mov     cx, W
+  @2:   std
+        lodsb
+        cld
+        stosb
+        loop    @2
+        pop     cx
+        loop    @1
+        pop     es
+        pop     ds
+    end;
   end;
 
   procedure InitSky (NewSky: Byte);
@@ -277,10 +277,10 @@ inline(
 
   procedure InitPipes (NewColor: Byte);
   begin
-    ReColor (A3(@Pipe000^), A3(@Pipe000^), NewColor);
-    ReColor (A3(@Pipe001^), A3(@Pipe001^), NewColor);
-    ReColor (A3(@Pipe002^), A3(@Pipe002^), NewColor);
-    ReColor (A3(@Pipe003^), A3(@Pipe003^), NewColor);
+    ReColor (@Pipe000, @Pipe000, NewColor);
+    ReColor (@Pipe001, @Pipe001, NewColor);
+    ReColor (@Pipe002, @Pipe002, NewColor);
+    ReColor (@Pipe003, @Pipe003, NewColor);
 
   end;
 
@@ -292,48 +292,48 @@ inline(
   begin
     case WallType of
       0: begin
-           Move (A3(@Green000^)^, FigList [N,  1], SizeOf (FigList [N,  1]));
-           Move (A3(@Green001^)^, FigList [N,  2], SizeOf (FigList [N,  2]));
-           Move (A3(@Green002^)^, FigList [N,  4], SizeOf (FigList [N,  4]));
-           Move (A3(@Green003^)^, FigList [N,  5], SizeOf (FigList [N,  5]));
-           Move (A3(@Green004^)^, FigList [N, 10], SizeOf (FigList [N, 10]));
+           Move (@Green000^, FigList [N,  1], SizeOf (FigList [N,  1]));
+           Move (@Green001^, FigList [N,  2], SizeOf (FigList [N,  2]));
+           Move (@Green002^, FigList [N,  4], SizeOf (FigList [N,  4]));
+           Move (@Green003^, FigList [N,  5], SizeOf (FigList [N,  5]));
+           Move (@Green004^, FigList [N, 10], SizeOf (FigList [N, 10]));
          end;
       1: begin
-           Move (A3(@Sand000^)^, FigList [N,  1], SizeOf (FigList [N,  1]));
-           Move (A3(@Sand001^)^, FigList [N,  2], SizeOf (FigList [N,  2]));
-           Move (A3(@Sand002^)^, FigList [N,  4], SizeOf (FigList [N,  4]));
-           Move (A3(@Sand003^)^, FigList [N,  5], SizeOf (FigList [N,  5]));
-           Move (A3(@Sand004^)^, FigList [N, 10], SizeOf (FigList [N, 10]));
+           Move (@Sand000^, FigList [N,  1], SizeOf (FigList [N,  1]));
+           Move (@Sand001^, FigList [N,  2], SizeOf (FigList [N,  2]));
+           Move (@Sand002^, FigList [N,  4], SizeOf (FigList [N,  4]));
+           Move (@Sand003^, FigList [N,  5], SizeOf (FigList [N,  5]));
+           Move (@Sand004^, FigList [N, 10], SizeOf (FigList [N, 10]));
          end;
       2: begin
            i := Options. GroundColor1;
            j := Options. GroundColor2;
-           Recolor2 (A3(@Green000^), @FigList [N,  1], i, j);
-           Recolor2 (A3(@Green001^), @FigList [N,  2], i, j);
-           Recolor2 (A3(@Green002^), @FigList [N,  4], i, j);
-           Recolor2 (A3(@Green003^), @FigList [N,  5], i, j);
-           Recolor2 (A3(@Green004^), @FigList [N, 10], i, j);
+           Recolor2 (@Green000, @FigList [N,  1], i, j);
+           Recolor2 (@Green001, @FigList [N,  2], i, j);
+           Recolor2 (@Green002, @FigList [N,  4], i, j);
+           Recolor2 (@Green003, @FigList [N,  5], i, j);
+           Recolor2 (@Green004, @FigList [N, 10], i, j);
          end;
       3: begin
-           Move (A3(@Brown000^)^, FigList [N,  1], SizeOf (FigList [N,  1]));
-           Move (A3(@Brown001^)^, FigList [N,  2], SizeOf (FigList [N,  2]));
-           Move (A3(@Brown002^)^, FigList [N,  4], SizeOf (FigList [N,  4]));
-           Move (A3(@Brown003^)^, FigList [N,  5], SizeOf (FigList [N,  5]));
-           Move (A3(@Brown004^)^, FigList [N, 10], SizeOf (FigList [N, 10]));
+           Move (@Brown000^, FigList [N,  1], SizeOf (FigList [N,  1]));
+           Move (@Brown001^, FigList [N,  2], SizeOf (FigList [N,  2]));
+           Move (@Brown002^, FigList [N,  4], SizeOf (FigList [N,  4]));
+           Move (@Brown003^, FigList [N,  5], SizeOf (FigList [N,  5]));
+           Move (@Brown004^, FigList [N, 10], SizeOf (FigList [N, 10]));
          end;
       4: begin
-           Move (A3(@Grass000^)^, FigList [N,  1], SizeOf (FigList [N,  1]));
-           Move (A3(@Grass001^)^, FigList [N,  2], SizeOf (FigList [N,  2]));
-           Move (A3(@Grass002^)^, FigList [N,  4], SizeOf (FigList [N,  4]));
-           Move (A3(@Grass003^)^, FigList [N,  5], SizeOf (FigList [N,  5]));
-           Move (A3(@Grass004^)^, FigList [N, 10], SizeOf (FigList [N, 10]));
+           Move (@Grass000^, FigList [N,  1], SizeOf (FigList [N,  1]));
+           Move (@Grass001^, FigList [N,  2], SizeOf (FigList [N,  2]));
+           Move (@Grass002^, FigList [N,  4], SizeOf (FigList [N,  4]));
+           Move (@Grass003^, FigList [N,  5], SizeOf (FigList [N,  5]));
+           Move (@Grass004^, FigList [N, 10], SizeOf (FigList [N, 10]));
          end;
       5: begin
-           Move (A3(@Des000^)^, FigList [N,  1], SizeOf (FigList [N,  1]));
-           Move (A3(@Des001^)^, FigList [N,  2], SizeOf (FigList [N,  2]));
-           Move (A3(@Des002^)^, FigList [N,  4], SizeOf (FigList [N,  4]));
-           Move (A3(@Des003^)^, FigList [N,  5], SizeOf (FigList [N,  5]));
-           Move (A3(@Des004^)^, FigList [N, 10], SizeOf (FigList [N, 10]));
+           Move (@Des000^, FigList [N,  1], SizeOf (FigList [N,  1]));
+           Move (@Des001^, FigList [N,  2], SizeOf (FigList [N,  2]));
+           Move (@Des002^, FigList [N,  4], SizeOf (FigList [N,  4]));
+           Move (@Des003^, FigList [N,  5], SizeOf (FigList [N,  5]));
+           Move (@Des004^, FigList [N, 10], SizeOf (FigList [N, 10]));
          end;
 
     end;
@@ -593,8 +593,8 @@ inline(
             end;
           end;
 
-        '?': Fig := A3(@Quest000^);
-        '@': Fig := A3(@Quest001^);
+        '?': Fig := @Quest000;
+        '@': Fig := @Quest001;
 
         'A': begin
                L := WorldMap^ [X - 1, Y] = 'A';
@@ -618,15 +618,16 @@ inline(
                    Fig := @Bricks [0]
              end;
 
-        'I': Fig := A3(@Block000^);
-        'J': Fig := A3(@Block001^);
-        'K': Fig := A3(@Note000^);
 
-        'X': Fig := A3(@XBlock000^);
+        'I': Fig := @Block000;
+        'J': Fig := @Block001;
+        'K': Fig := @Note000;
 
-        'W': Fig := A3(@Wood000^);
+        'X': Fig := @XBlock000;
+
+        'W': Fig := @Wood000;
         '=': begin
-               Fig := A3(@Pin000^);
+               Fig := @Pin000;
                if WorldMap^ [X, Y + 1] in CanHoldYou then
                  DrawImage (XPos, YPos, W, H, Fig^)
                else
@@ -634,135 +635,135 @@ inline(
                Fig := NIL;
              end;
 
-        '0': Fig := A3(@Pipe000^);
-        '1': Fig := A3(@Pipe001^);
-        '2': Fig := A3(@Pipe002^);
-        '3': Fig := A3(@Pipe003^);
+        '0': Fig := @Pipe000;
+        '1': Fig := @Pipe001;
+        '2': Fig := @Pipe002;
+        '3': Fig := @Pipe003;
 
-        '*': Fig := A3(@Coin000^);
+        '*': Fig := @Coin000;
 
         'þ': if WorldMap^ [X, Y - 1] = 'þ' then
-               Fig := A3(@Exit001^)
+               Fig := @Exit001
              else
-               Fig := A3(@Exit000^);
+               Fig := @Exit000;
 
         '÷': begin
                if (WorldMap^ [X, Y - 1] = 'ð') and (Options.Design = 2) then
                begin
-                 Fig := A3(@SmTree001^);
+                 Fig := @SmTree001;
                  DrawImage (XPos, YPos, W, H, Fig^);
                end;
                if WorldMap^ [X, Y - 1] = 'ö' then
                  if Options.Design in [1] then
                  begin
-                   Fig := A3(@WPalm000^);
+                   Fig := @WPalm000;
                    DrawImage (XPos, YPos, W, H, Fig^);
                  end;
                if (X = 0) or (WorldMap^ [X - 1, Y] = Ch) then
                begin
                  if WorldMap^ [X + 1, Y] = Ch then
-                   Fig := A3(@Grass2000^)
+                   Fig := @Grass2000
                  else
-                   Fig := A3(@Grass3000^);
+                   Fig := @Grass3000;
                end
                else
                  if WorldMap^ [X + 1, Y] = Ch then
-                   Fig := A3(@Grass1000^)
+                   Fig := @Grass1000
                  else
-                   Fig := A3(@Grass3000^);
+                   Fig := @Grass3000;
              end;
 
         'ð': case Options.Design of
                1: if WorldMap^ [X, Y - 1] <> Ch then
-                    Fig := A3(@Fence001^)
+                    Fig := @Fence001
                   else
-                    Fig := A3(@Fence000^);
+                    Fig := @Fence000;
                2: if WorldMap^ [X, Y - 1] <> Ch then
-                    Fig := A3(@SmTree000^)
+                    Fig := @SmTree000
                   else
-                    Fig := A3(@SmTree001^);
+                    Fig := @SmTree001;
              end;
 
         'ö': case Options.Design of
-               1: Fig := A3(@WPalm000^);
+               1: Fig := @WPalm000;
              end;
         'ú': case Options.Design of
                1: begin
                     if WorldMap^ [X - 1, Y] = 'ù' then
                     begin
-                      Fig := A3(@Palm3000^);
+                      Fig := @Palm3000;
                       DrawImage (XPos, YPos, W, H, Fig^);
                     end
                     else
                     if WorldMap^ [X + 1, Y] = 'ù' then
                     begin
-                      Fig := A3(@Palm1000^);
+                      Fig := @Palm1000;
                       DrawImage (XPos, YPos, W, H, Fig^);
                     end;
-                    Fig := A3(@Palm0000^);
+                    Fig := @Palm0000;
                  end;
              end;
         'ô': case Options.Design of
                1: begin
                     if WorldMap^ [X, Y + 1] = 'ö' then
                     begin
-                      Fig := A3(@WPalm000^);
+                      Fig := @WPalm000;
                       DrawImage (XPos, YPos, W, H, Fig^);
                     end;
-                    Fig := A3(@Palm1000^);
+                    Fig := @Palm1000;
                   end;
              end;
         'ù': case Options.Design of
-               1: Fig := A3(@Palm2000^);
+               1: Fig := @Palm2000;
              end;
         'õ': case Options.Design of
                1: begin
                     if WorldMap^ [X, Y + 1] = 'ö' then
                     begin
-                      Fig := A3(@WPalm000^);
+                      Fig := @WPalm000;
                       DrawImage (XPos, YPos, W, H, Fig^);
                     end;
-                    Fig := A3(@Palm3000^);
+                    Fig := @Palm3000;
                   end;
              end;
 
 
         '#': case Options.Design of
-               1: Fig := A3(@Fall000^);
+               1: Fig := @Fall000;
                2: case WorldMap^ [X, Y - 1] of
-                    '#': PutImage (XPos, YPos, W, H, A3(@Tree001^)^);
+                    '#': PutImage (XPos, YPos, W, H, @Tree001^);
                     '%': begin
-                           Fig := A3(@Tree000^);
+                           Fig := @Tree000;
                            PutImage (XPos, YPos, W, H, Fig^);
-                           Fig := A3(@Tree003^);
+                           Fig := @Tree003;
                          end;
-                    else Fig := A3(@Tree003^);
+                    else Fig := @Tree003;
                   end;
-               3: Fig := A3(@Window001^);
-               4: Fig := A3(@Lava000^);
+               3: Fig := @Window001;
+               4: Fig := @Lava000;
                5: Fill (XPos, YPos, W, H, 5);
              end;
         '%': case Options.Design of
-               1: Fig := A3(@Fall001^);
+               1: Fig := @Fall001;
                2: case WorldMap^ [X, Y - 1] of
-                    '%': PutImage (XPos, YPos, W, H, A3(@Tree000^)^);
+                    '%': PutImage (XPos, YPos, W, H, @Tree000^);
                     '#': begin
-                           Fig := A3(@Tree001^);
+                           Fig := @Tree001;
                            PutImage (XPos, YPos, W, H, Fig^);
-                           Fig := A3(@Tree002^);
+                           Fig := @Tree002;
                          end;
                     else
-                         Fig := A3(@Tree002^);
+                         Fig := @Tree002;
                   end;
-               3: Fig := A3(@Window000^);
-               4: Fig := A3(@Lava001^);
+               3: Fig := @Window000;
+               4: Fig := @Lava001;
                5: begin
                     case (X + LavaCounter div 8) mod 5 of
-                      0: Fig := A3(@Lava2001^);
-                      1: Fig := A3(@Lava2002^);
-                      2: Fig := A3(@Lava2003^);
-                      3: Fig := A3(@Lava2004^);
-                      4: Fig := A3(@Lava2005^);
+                      0: Fig := @Lava2001;
+                      1: Fig := @Lava2002;
+                      2: Fig := @Lava2003;
+                      3: Fig := @Lava2004;
+                      4: Fig := @Lava2005;
                     end;
                   end;
              end;
@@ -901,37 +902,37 @@ inline(
         case WallType1 of
           100:
             begin
-              Recolor (A3(@Brick0000^), @Bricks [0], GroundColor1);
-              Recolor (A3(@Brick0001^), @Bricks [1], GroundColor1);
-              Recolor (A3(@Brick0002^), @Bricks [2], GroundColor1);
+              Recolor (@Brick0000, @Bricks [0], GroundColor1);
+              Recolor (@Brick0001, @Bricks [1], GroundColor1);
+              Recolor (@Brick0002, @Bricks [2], GroundColor1);
             end;
           101:
             begin
-              Recolor (A3(@Brick1000^), @Bricks [0], GroundColor1);
-              Recolor (A3(@Brick1001^), @Bricks [1], GroundColor1);
-              Recolor (A3(@Brick1002^), @Bricks [2], GroundColor1);
+              Recolor (@Brick1000, @Bricks [0], GroundColor1);
+              Recolor (@Brick1001, @Bricks [1], GroundColor1);
+              Recolor (@Brick1002, @Bricks [2], GroundColor1);
             end;
           102:
             begin
-              Recolor (A3(@Brick2000^), @Bricks [0], GroundColor1);
-              Recolor (A3(@Brick2001^), @Bricks [1], GroundColor1);
-              Recolor (A3(@Brick2002^), @Bricks [2], GroundColor1);
+              Recolor (@Brick2000, @Bricks [0], GroundColor1);
+              Recolor (@Brick2001, @Bricks [1], GroundColor1);
+              Recolor (@Brick2002, @Bricks [2], GroundColor1);
             end;
 
         end;
       end;
-    ConvertGrass (A3(@Grass1000^), A3(@Grass1001^), A3(@Grass1002^));
-    ConvertGrass (A3(@Grass2000^), A3(@Grass2001^), A3(@Grass2002^));
-    ConvertGrass (A3(@Grass3000^), A3(@Grass3002^), A3(@Grass3001^));
+    ConvertGrass (@Grass1000, @Grass1001, @Grass1002);
+    ConvertGrass (@Grass2000, @Grass2001, @Grass2002);
+    ConvertGrass (@Grass3000, @Grass3002, @Grass3001);
 
-    ConvertGrass (A3(@Palm0000^), A3(@Palm0001^), A3(@Palm0002^));
-    ConvertGrass (A3(@Palm1000^), A3(@Palm1001^), A3(@Palm1002^));
-    ConvertGrass (A3(@Palm2000^), A3(@Palm2001^), A3(@Palm2002^));
-    ConvertGrass (A3(@Palm3000^), A3(@Palm3001^), A3(@Palm3002^));
+    ConvertGrass (@Palm0000, @Palm0001, @Palm0002);
+    ConvertGrass (@Palm1000, @Palm1001, @Palm1002);
+    ConvertGrass (@Palm2000, @Palm2001, @Palm2002);
+    ConvertGrass (@Palm3000, @Palm3001, @Palm3002);
 
-    Recolor (A3(@Block001^), A3(@Block001^), Options.BrickColor);
-    Recolor (A3(@Wood000^), A3(@Wood000^), Options.WoodColor);
-    Recolor (A3(@XBlock000^), A3(@XBlock000^), Options.XBlockColor);
+    Recolor (@Block001, @Block001, Options.BrickColor);
+    Recolor (@Wood000, @Wood000, Options.WoodColor);
+    Recolor (@XBlock000, @XBlock000, Options.XBlockColor);
 
   end;
 

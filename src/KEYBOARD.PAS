@@ -3,7 +3,7 @@ unit Keyboard;
   {  (C) Copyright 1994-2001, Mike Wiering, e-mail: mike.wiering@wxs.nl  }
 
   {
-     Keyboard unit for use with Turbo Pascal 5.5
+     Keyboard unit for use with Turbo Pascal 6/7
   }
 
 interface
@@ -33,7 +33,6 @@ interface
   var
     Key: Char;
     bKey: Byte absolute Key;
-
 
   procedure InitKeyBoard;
   procedure KeyBoardDone;
@@ -66,87 +65,7 @@ implementation
     Dos;
 
   const
-    HandlerActive: Boolean = FALSE;
-    KeyHit: Boolean = FALSE;
-
-  const
     MaxKeys = 9;
-
-  const
-    KeyMap: Array[1..MaxKeys] of Boolean =
-      (False, False, False, False, False, False, False, False, False);
-
-    PressCode: Array[1..MaxKeys] of Char =
-      ('K', 'M', 'H', 'P', '8', #29, '*', '6', '9');
-
-    ReleaseCode: Array[1..MaxKeys] of Char =
-      (#203, #205, #200, #208, #184, #157, #170, #182, #185);
-
-  {$F+}
-  {$S-}
-  procedure GetKey;
-  begin
-inline(
-                     $5D  (*           pop     bp *)
-
-                    /$9C  (*           pushf *)
-                    /$50  (*           push    ax *)
-                    /$51  (*           push    cx *)
-                    /$52  (*           push    dx *)
-                    /$57  (*           push    di *)
-                    /$06  (*           push    es *)
-            /$B8/$00/$00  (*           mov     ax, seg @Data *)
-                /$8E/$C0  (*           mov     es, ax *)
-    /$26/$FE/$06/>KeyHit  (*           inc     es:KeyHit *)
-                /$E4/$60  (*           in      al, 60h *)
-                /$88/$C2  (*           mov     dl, al *)
-          /$26/$A2/> Key  (*           mov     es:Key, al *)
-        /$BF/> PressCode  (*           mov     di, offset PressCode *)
-          /$B9/ >MaxKeys  (*           mov     cx, MaxKeys *)
-                    /$FC  (*           cld *)
-                    /$F2  (*           repnz *)
-                    /$AE  (*           scasb *)
-                /$75/$0B  (*           jnz     @1 *)
-   /$BF/> KeyMap + MaxKeys (*           mov     di, offset KeyMap[MaxKeys] *)
-                /$29/$CF  (*           sub     di, cx *)
-                /$B0/$01  (*           mov     al, 1 *)
-                    /$4F  (*           dec     di *)
-                    /$AA  (*           stosb *)
-                /$EB/$1A  (*           jmp     @2 *)
-      /$BF/> ReleaseCode  (*   @1:     mov     di, offset ReleaseCode *)
-          /$B9/> MaxKeys  (*           mov     cx, MaxKeys *)
-                    /$FC  (*           cld *)
-                    /$F2  (*           repnz *)
-                    /$AE  (*           scasb *)
-                /$75/$0F  (*           jnz     @2 *)
- /$26/$C6/$06/> KeyHit /$00  (*           mov     es:KeyHit, 0 *)
-   /$BF/> KeyMap + MaxKeys (*           mov     di, offset KeyMap[MaxKeys] *)
-                /$29/$CF  (*           sub     di, cx *)
-                /$B0/$00  (*           mov     al, 0 *)
-                    /$4F  (*           dec     di *)
-                    /$AA  (*           stosb *)
-                    /$07  (*   @2:     pop     es *)
-                /$E4/$61  (*           in      al, 61h *)
-                    /$50  (*           push    ax *)
-                /$0C/$80  (*           or      al, 80h *)
-                /$E6/$61  (*           out     61h, al *)
-                    /$58  (*           pop     ax *)
-                /$E6/$61  (*           out     61h, al *)
-                    /$FA  (*           cli *)
-                /$B0/$20  (*           mov     al, 20h *)
-                /$E6/$20  (*           out     20h, al *)
-                    /$FB  (*           sti *)
-
-                    /$5F  (*           pop     di *)
-                    /$5A  (*           pop     dx *)
-                    /$59  (*           pop     cx *)
-                    /$58  (*           pop     ax *)
-                    /$9D  (*           popf *)
-                    /$CF  (*           iret  *)
-);
-  end;
-  {$F-}
-
 
   const
     keyLeft   = 1;
@@ -177,12 +96,87 @@ inline(
     OldKbIntVec: Procedure;
     OldExitProc: Pointer;
 
+  const
+    KeyMap: Array[1..MaxKeys] of Boolean =
+      (False, False, False, False, False, False, False, False, False);
+
+    PressCode: Array[1..MaxKeys] of Char =
+      ('K', 'M', 'H', 'P', '8', #29, '*', '6', '9');
+
+    ReleaseCode: Array[1..MaxKeys] of Char =
+      (#203, #205, #200, #208, #184, #157, #170, #182, #185);
+
+  const
+    HandlerActive: Boolean = FALSE;
+    KeyHit: Boolean = FALSE;
+
+  procedure Macro; external; {$L DEMOKEYS.OBJ}
 
   {$F+}
   procedure NewExitProc;
   begin
     KeyBoardDone;
     ExitProc := OldExitProc;
+  end;
+  {$F-}
+
+  {$F+}
+  procedure GetKey; Assembler;
+  asm
+          pushf
+          push    ax
+          push    cx
+          push    dx
+          push    di
+          push    es
+          mov     ax, seg @Data
+          mov     es, ax
+          inc     es:KeyHit
+          in      al, 60h
+          mov     dl, al
+          mov     es:Key, al
+          mov     di, offset PressCode
+          mov     cx, MaxKeys
+          cld
+          repnz
+          scasb
+          jnz     @1
+          mov     di, offset KeyMap[MaxKeys]
+          sub     di, cx
+          mov     al, 1
+          dec     di
+          stosb
+          jmp     @2
+  @1:     mov     di, offset ReleaseCode
+          mov     cx, MaxKeys
+          cld
+          repnz
+          scasb
+          jnz     @2
+          mov     es:KeyHit, 0
+          mov     di, offset KeyMap[MaxKeys]
+          sub     di, cx
+          mov     al, 0
+          dec     di
+          stosb
+  @2:     pop     es
+          in      al, 61h
+          push    ax
+          or      al, 80h
+          out     61h, al
+          pop     ax
+          out     61h, al
+          cli
+          mov     al, 20h
+          out     20h, al
+          sti
+
+          pop     di
+          pop     dx
+          pop     cx
+          pop     ax
+          popf
+          iret
   end;
   {$F-}
 
@@ -221,9 +215,6 @@ inline(
       KeyMap[i] := False;
     Key := #0;
   end;
-
-
-  procedure Macro; external; {$L DEMOKEYS.OBJ}
 
   procedure RecordMacro;
   begin
@@ -371,16 +362,4 @@ inline(
     end
   end;
 
-  type
-    WordPtr = ^Word;
-
-  var
-    P: Pointer;
-    L: LongInt absolute P;
-    W: WordPtr;
-begin
-  P := @GetKey;
-  Inc (L, 11);
-  W := P;
-  W^ := DSeg;
 end.

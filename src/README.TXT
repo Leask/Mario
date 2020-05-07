@@ -1,6 +1,6 @@
 
                            MARIO & LUIGI SOURCE CODE
-                               TURBO PASCAL 5.5
+                            TURBO PASCAL 6.0 OR 7.0
 
                     http://home.wxs.nl/~mike.wiering/mario/
                        Mike Wiering (mike.wiering@wxs.nl)
@@ -22,16 +22,18 @@ Introduction
 
 Compilation
 
-   To compile the game, you will need Turbo Pascal 5.5. Use the command line
+   To compile the game, you will need Turbo Pascal 6.0 or 7.0 installed on
+   your system. In version 7.0 you can use the IDE (start TPX) without
+   problems, load MARIO.PAS and just run it. Otherwise, use the command line
    compiler (run this from the directory where you have the source code):
 
       TPC /M /L MARIO
 
-   There is also a version of the source code for Turbo Pascal 6.0 or 7.0,
-   get MARIOSRC.ZIP.
+   There is also a version of the source code for Turbo Pascal 5.5, which is
+   freely available from Borland (http://www.borland.com), get MARSRC55.ZIP.
 
-   After compiling the game, you can compress it with UPX (Ultimate Packer
-   for eXecutables - http://upx.tsx.org) to make the .EXE file really small.
+   After compiling the game, you can compress it with LZEXE or UPX to make
+   the executable really small.
 
 
 Usage
@@ -83,7 +85,7 @@ Notes about the source code
    move the background by only drawing the pixels that change when the arches
    move. This can be done very fast. The bricks and pillars are done by
    changing the palette (see BACKGR.PAS).
-
+   
 
 Disclaimer
 

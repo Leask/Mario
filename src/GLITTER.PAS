@@ -20,9 +20,6 @@ implementation
   const
     MaxGlitter = 75;
 
-  var
-    DataSeg: Word;
-
   type
     GlitterRec = record
       Attr: Byte;
@@ -85,7 +82,6 @@ implementation
     if NumGlitter > 0 then
       for i := 1 to MaxGlitter do
         if Count [i] > Chr (MAX_PAGE + 1) then
-        begin
           {
             with GlitterList [i] do
             begin
@@ -93,53 +89,52 @@ implementation
               PutPixel (XPos, YPos, Attr);
             end
           }
-inline(
-                     $06  (*                   push    es *)
-                    /$1E  (*                   push    ds *)
-            /$A1/> DataSeg  (*                   mov     ax, seg @Data *)
-                /$8E/$D8  (*                   mov     ds, ax *)
-        /$BE/> GlitterList  (*                   mov     si, offset GlitterList *)
-        /$B8/> VGA_SEGMENT  (*                   mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*                   mov     es, ax *)
-            /$8B/$5E/< i  (*                   mov     bx, i *)
-                    /$4B  (*                   dec     bx *)
-                /$B1/$03  (*                   mov     cl, 3 *)
-                /$D3/$E3  (*                   shl     bx, cl *)
-                /$01/$DE  (*                   add     si, bx *)
-                    /$AC  (*                   lodsb                   { Attr } *)
-                    /$50  (*                   push    ax *)
-                    /$AD  (*                   lodsw                   { Pos } *)
+          asm
+                  push    es
+                  push    ds
+                  mov     ax, seg @Data
+                  mov     ds, ax
+                  mov     si, offset GlitterList
+                  mov     ax, VGA_SEGMENT
+                  mov     es, ax
+                  mov     bx, i
+                  dec     bx
+                  mov     cl, 3
+                  shl     bx, cl
+                  add     si, bx
+                  lodsb                   { Attr }
+                  push    ax
+                  lodsw                   { Pos }
 
-                /$89/$C7  (*                   mov     di, ax *)
-                /$D1/$EF  (*                   shr     di, 1 *)
-                /$D1/$EF  (*                   shr     di, 1 *)
-            /$03/$7E/< PageOffset  (*                   add     di, PageOffset *)
-                /$24/$03  (*                   and     al, 3 *)
-                /$88/$C1  (*                   mov     cl, al *)
+                  mov     di, ax
+                  shr     di, 1
+                  shr     di, 1
+                  add     di, PageOffset
+                  and     al, 3
+                  mov     cl, al
 
-            /$BA/$CE/$03  (*                   mov     dx, GC_INDEX *)
-                /$88/$C4  (*                   mov     ah, al *)
-                /$B0/$04  (*                   mov     al, READ_MAP *)
-                    /$EF  (*                   out     dx, ax *)
+                  mov     dx, GC_INDEX
+                  mov     ah, al
+                  mov     al, READ_MAP
+                  out     dx, ax
 
-                    /$26  (*                   seges *)
-                /$8A/$1D  (*                   mov     bl, [di] *)
+                  seges
+                  mov     bl, [di]
 
-                /$B4/$01  (*                   mov     ah, 1 *)
-                /$D2/$E4  (*                   shl     ah, cl *)
-            /$BA/$C4/$03  (*                   mov     dx, SC_INDEX *)
-                /$B0/$02  (*                   mov     al, MAP_MASK *)
-                    /$EF  (*                   out     dx, ax *)
+                  mov     ah, 1
+                  shl     ah, cl
+                  mov     dx, SC_INDEX
+                  mov     al, MAP_MASK
+                  out     dx, ax
 
-                    /$58  (*                   pop     ax *)
-                    /$AA  (*                   stosb *)
+                  pop     ax
+                  stosb
 
-            /$03/$76/< Page  (*                   add     si, Page *)
-                /$88/$1C  (*                   mov     [si], bl        { BackGr [Page] } *)
-                    /$1F  (*                   pop     ds *)
-                    /$07  (*                   pop     es *)
-);
-        end
+                  add     si, Page
+                  mov     [si], bl        { BackGr [Page] }
+                  pop     ds
+                  pop     es
+          end
         else
           if Count [i] > #0 then
             with GlitterList [i] do
@@ -164,41 +159,41 @@ inline(
           if BackGr [WorkingPage] <> 0 then
             PutPixel (XPos, YPos, BackGr [WorkingPage]);
         }
-inline(
-                     $06  (*                   push    es *)
-                    /$1E  (*                   push    ds *)
-            /$A1/> DataSeg  (*                   mov     ax, seg @Data *)
-                /$8E/$D8  (*                   mov     ds, ax *)
-            /$BE/> GlitterList  (*                   mov     si, offset GlitterList *)
-            /$B8/$00/$A0  (*                   mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*                   mov     es, ax *)
-            /$8B/$5E/ <i  (*                   mov     bx, i *)
-                    /$4B  (*                   dec     bx *)
-                /$B1/$03  (*                   mov     cl, 3 *)
-                /$D3/$E3  (*                   shl     bx, cl *)
-                /$01/$DE  (*                   add     si, bx *)
-                    /$AC  (*                   lodsb                   { Attr } *)
-                    /$AD  (*                   lodsw                   { Pos } *)
-                /$89/$C7  (*                   mov     di, ax *)
-                /$89/$C1  (*                   mov     cx, ax *)
-            /$03/$76/< Page  (*                   add     si, Page *)
-                /$8A/$1C  (*                   mov     bl, [si]        { BackGr [Page] } *)
-                /$08/$DB  (*                   or      bl, bl *)
-                /$74/$17  (*                   jz      @1 *)
-                /$D1/$EF  (*                   shr     di, 1 *)
-                /$D1/$EF  (*                   shr     di, 1 *)
-            /$03/$7E/ <PageOffset  (*                   add     di, PageOffset *)
-                /$B4/$01  (*                   mov     ah, 1 *)
-            /$80/$E1/$03  (*                   and     cl, 3 *)
-                /$D2/$E4  (*                   shl     ah, cl *)
-            /$BA/$C4/$03  (*                   mov     dx, SC_INDEX *)
-                /$B0/$02  (*                   mov     al, MAP_MASK *)
-                    /$EF  (*                   out     dx, ax *)
-                /$88/$D8  (*                   mov     al, bl *)
-                    /$AA  (*                   stosb *)
-                    /$1F  (*             @1:   pop     ds *)
-                    /$07  (*                   pop     es *)
-);
+            asm
+                  push    es
+                  push    ds
+                  mov     ax, seg @Data
+                  mov     ds, ax
+                  mov     si, offset GlitterList
+                  mov     ax, VGA_SEGMENT
+                  mov     es, ax
+                  mov     bx, i
+                  dec     bx
+                  mov     cl, 3
+                  shl     bx, cl
+                  add     si, bx
+                  lodsb                   { Attr }
+                  lodsw                   { Pos }
+                  mov     di, ax
+                  mov     cx, ax
+                  add     si, Page
+                  mov     bl, [si]        { BackGr [Page] }
+                  or      bl, bl
+                  jz      @1
+                  shr     di, 1
+                  shr     di, 1
+                  add     di, PageOffset
+                  mov     ah, 1
+                  and     cl, 3
+                  shl     ah, cl
+                  mov     dx, SC_INDEX
+                  mov     al, MAP_MASK
+                  out     dx, ax
+                  mov     al, bl
+                  stosb
+            @1:   pop     ds
+                  pop     es
+            end;
         Dec (Count [i]);
         if Count [i] = #0 then
           Dec (NumGlitter);
@@ -224,6 +219,4 @@ inline(
       NewGlitter (X + Random (W), Y + Random (H), $1F, 5 + Random (10));
   end;
 
-begin
-  DataSeg := DSeg;
 end.

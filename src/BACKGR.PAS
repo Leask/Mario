@@ -28,10 +28,6 @@ interface
   procedure DrawBackGrBlock (X, Y, W, H: Integer);
   procedure SmoothFill (X, Y, W, H: Integer);
 
-
-  procedure TraceCloud (X, Y, N: Integer; Dir, Attr, Ovr: Byte);
-  procedure PutBackGr (var Map; Fill: Boolean);
-
 implementation
 
   {$I PALBRICK.$00}
@@ -106,96 +102,94 @@ implementation
     Max: Integer;
     Ok: Byte;
   begin
-inline(
-                 $EB/$47  (*           jmp     @Start *)
+    asm
+          jmp     @Start
 
-(*     @PutList:     { SI = Offset, AH = Count } *)
-        /$C6/$46/$FB/$00  (*           mov     Ok, 0 *)
-                    /$50  (*           push    ax *)
-                /$2E/$AD  (*           segcs   lodsw *)
-                /$01/$C7  (*           add     di, ax *)
-                    /$51  (*           push    cx *)
-                    /$57  (*           push    di *)
-            /$26/$8A/$05  (*     @@0:  seges   mov     al, [di] *)
-                /$38/$D8  (*           cmp     al, bl *)
-                /$75/$1B  (*           jnz     @@1 *)
-            /$3B/$7E/$FE  (*           cmp     di, Min *)
-                /$72/$0E  (*           jb      @@2 *)
-            /$3B/$7E/$FC  (*           cmp     di, Max *)
-                /$77/$09  (*           ja      @@2 *)
-            /$26/$88/$15  (*           seges   mov     [di], dl *)
-        /$C6/$46/$FB/$01  (*           mov     Ok, 1 *)
-                /$EB/$08  (*           jmp     @@1 *)
-        /$80/$7E/$FB/$01  (*     @@2:  cmp     Ok, 1 *)
-                /$75/$02  (*           jnz     @@1 *)
-                /$EB/$04  (*           jmp     @@3 *)
-                    /$47  (*     @@1:  inc     di *)
-                    /$49  (*           dec     cx *)
-                /$75/$DA  (*           jnz     @@0 *)
-                    /$5F  (*     @@3:  pop     di *)
-        /$81/$C7/$40/$01  (*           add     di, 320 *)
-                    /$59  (*           pop     cx *)
-                    /$58  (*           pop     ax *)
-    /$81/$46/$FE/$40/$01  (*           add     Min, 320 *)
-    /$81/$46/$FC/$40/$01  (*           add     Max, 320 *)
-                /$FE/$CC  (*           dec     ah *)
-                /$75/$BA  (*           jnz     @PutList *)
-                    /$C3  (*           retn *)
+    @PutList:     { SI = Offset, AH = Count }
+          mov     Ok, 0
+          push    ax
+          segcs   lodsw
+          add     di, ax
+          push    cx
+          push    di
+    @@0:  seges   mov     al, [di]
+          cmp     al, bl
+          jnz     @@1
+          cmp     di, Min
+          jb      @@2
+          cmp     di, Max
+          ja      @@2
+          seges   mov     [di], dl
+          mov     Ok, 1
+          jmp     @@1
+    @@2:  cmp     Ok, 1
+          jnz     @@1
+          jmp     @@3
+    @@1:  inc     di
+          dec     cx
+          jnz     @@0
+    @@3:  pop     di
+          add     di, 320
+          pop     cx
+          pop     ax
+          add     Min, 320
+          add     Max, 320
+          dec     ah
+          jnz     @PutList
+          retn
 
-(*     @Start: *)
-                    /$06  (*           push    es *)
-            /$B8/$00/$A0  (*           mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*           mov     es, ax *)
-                    /$FC  (*           cld *)
-            /$BB/$40/$01  (*           mov     bx, 320 *)
-            /$8B/$46/$0E  (*           mov     ax, Y *)
+    @Start:
+          push    es
+          mov     ax, VGA_SEGMENT
+          mov     es, ax
+          cld
+          mov     bx, 320
+          mov     ax, Y
+  {        add     ax, WindowY }
+          mul     bx
+          push    ax
+          add     ax, XView
+          mov     Min, ax
+          mov     Max, ax
+          pop     ax
+          add     Max, 320 - 1
+          add     ax, X
+          mov     di, ax
+          mov     dl, Attr
 
-                /$F7/$E3  (*           mul     bx *)
-                    /$50  (*           push    ax *)
-        /$03/$06/$00/$00  (*           add     ax, XView *)
-            /$89/$46/$FE  (*           mov     Min, ax *)
-            /$89/$46/$FC  (*           mov     Max, ax *)
-                    /$58  (*           pop     ax *)
-    /$81/$46/$FC/$3F/$01  (*           add     Max, 320 - 1 *)
-            /$03/$46/$10  (*           add     ax, X *)
-                /$89/$C7  (*           mov     di, ax *)
-            /$8A/$56/$08  (*           mov     dl, Attr *)
+          cmp     Dir, Right
+          jz      @Right
+    @Left:
+          call    @GetLeftList
 
-        /$80/$7E/$0A/$01  (*           cmp     Dir, Right *)
-                /$74/$39  (*           jz      @Right *)
-(*     @Left: *)
-            /$E8/$00/$00  (*           call    @GetLeftList *)
+          dw      9, -3, -2, -1, -1, -1, 0, -1, 0, 0, 0, 0, 1
+          dw      0, 1, 1, 1, 2, 3
 
-/$09/$00/$FD/$FF/$FE/$FF/$FF/$FF/$FF/$FF/$FF/$FF/$00/$00/$FF/$FF/$00/$00/$00/$00/$00/$00/$00/$00/$01/$00
-(*           dw      9, -3, -2, -1, -1, -1, 0, -1, 0, 0, 0, 0, 1 *)
-/$00/$00/$01/$00/$01/$00/$01/$00/$02/$00/$03/$00  (*           dw      0, 1, 1, 1, 2, 3 *)
+    @GetLeftList:
+          pop     si
+          mov     ah, 19
+          mov     bl, Ovr
+          mov     cx, N
+          jcxz    @End
+          call    @PutList
+          jmp     @End
 
-(*     @GetLeftList: *)
-                    /$5E  (*           pop     si *)
-                /$B4/$13  (*           mov     ah, 19 *)
-            /$8A/$5E/$06  (*           mov     bl, Ovr *)
-            /$8B/$4E/$0C  (*           mov     cx, N *)
-                /$E3/$3C  (*           jcxz    @End *)
-            /$E8/$00/$00  (*           call    @PutList *)
-                /$EB/$37  (*           jmp     @End *)
+    @Right:
+          call    @GetRightList
 
-(*     @Right: *)
-            /$E8/$00/$00  (*           call    @GetRightList *)
+          dw      0, 3, 2, 1, 1, 1, 0, 1, 0, 0, 0, 0, -1, 0, -1
+          dw      -1, -1, -2, -3
 
-/$00/$00/$03/$00/$02/$00/$01/$00/$01/$00/$01/$00/$00/$00/$01/$00/$00/$00/$00/$00/$00/$00/$00/$00/$FF/$FF/$00/$00/$FF/$FF
-(*           dw      0, 3, 2, 1, 1, 1, 0, 1, 0, 0, 0, 0, -1, 0, -1 *)
-/$FF/$FF/$FF/$FF/$FE/$FF/$FD/$FF  (*           dw      -1, -1, -2, -3 *)
-
-(*     @GetRightList: *)
-                    /$5E  (*           pop     si *)
-                /$B4/$13  (*           mov     ah, 19 *)
-            /$8A/$5E/$06  (*           mov     bl, Ovr *)
-            /$8B/$4E/$0C  (*           mov     cx, N *)
-                /$E3/$03  (*           jcxz    @End *)
-            /$E8/$00/$00  (*           call    @PutList *)
-(*     @End: *)
-                    /$07  (*           pop     es *)
-);
+    @GetRightList:
+          pop     si
+          mov     ah, 19
+          mov     bl, Ovr
+          mov     cx, N
+          jcxz    @End
+          call    @PutList
+    @End:
+          pop     es
+    end;
   end;
 
   procedure PutClouds (Offset, N: Integer);
@@ -292,7 +286,7 @@ inline(
              Write (F, chr (BackGrMap[i]));
            close (F); }
 
-           move (A3(@BOGEN^)^, BackGrMap, SizeOf (BackGrMap));
+           move (@BOGEN^, BackGrMap, SizeOf (BackGrMap));
          end;
       3: begin
          {
@@ -320,10 +314,10 @@ inline(
              BackGrMap [i] := Round (X);
            end;
          }
-           move (A3(@MOUNT^)^, BackGrMap, SizeOf (BackGrMap));
+           move (@MOUNT^, BackGrMap, SizeOf (BackGrMap));
          end;
-      9: move (A3(@BOGEN7^)^, BackGrMap, SizeOf (BackGrMap));
-     10: move (A3(@BOGEN26^)^, BackGrMap, SizeOf (BackGrMap));
+      9: move (@BOGEN7^, BackGrMap, SizeOf (BackGrMap));
+     10: move (@BOGEN26^, BackGrMap, SizeOf (BackGrMap));
 
 
     end;
@@ -365,141 +359,251 @@ inline(
     end;
     XStart := XView div Speed;
     OldXStart := OldXView div Speed + DX;
-inline(
-                     $1E  (*           push    ds *)
-                    /$06  (*           push    es *)
-            /$B8/$00/$A0  (*           mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*           mov     es, ax *)
-            /$C5/$76/$08  (*           lds     si, Map *)
-                    /$FC  (*           cld *)
-    /$C7/$46/$E8/$04/$00  (*           mov     Count, 4 *)
-            /$8A/$4E/$E7  (*     @1:   mov     cl, Bank *)
-                /$B4/$01  (*           mov     ah, 1 *)
-                /$D2/$E4  (*           shl     ah, cl *)
-                /$B0/$02  (*           mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*           mov     dx, SC_INDEX *)
-                    /$EF  (*           out     dx, ax *)
-                /$88/$CC  (*           mov     ah, cl *)
-                /$B0/$04  (*           mov     al, READ_MAP *)
-            /$BA/$CE/$03  (*           mov     dx, GC_INDEX *)
-                    /$EF  (*           out     dx, ax *)
-            /$8B/$56/$F6  (*           mov     dx, XPos *)
-                /$B0/$F0  (*           mov     al, $F0 *)
-            /$8B/$7E/$FA  (*           mov     di, X1 *)
-            /$8B/$4E/$EA  (*           mov     cx, OldXStart *)
-            /$8B/$5E/$EC  (*           mov     bx, XStart *)
-                    /$53  (*     @4:   push    bx *)
-                    /$51  (*           push    cx *)
-                    /$52  (*           push    dx *)
-                    /$57  (*           push    di *)
-                /$8A/$20  (*           mov     ah, [bx + si]  { new position } *)
-                /$89/$CB  (*           mov     bx, cx *)
-                /$8A/$08  (*           mov     cl, [bx + si]  { old position } *)
-                /$B5/$00  (*           mov     ch, 0 *)
-        /$80/$7E/$06/$00  (*           cmp     Fill, 0 *)
-    /$74/$03/$E9/$98/$00  (*           jnz     @Fill *)
-            /$3B/$56/$F4  (*           cmp     dx, X1Pos *)
-    /$73/$03/$E9/$90/$00  (*           jb      @Fill *)
-            /$3B/$56/$F2  (*           cmp     dx, X2Pos *)
-    /$76/$03/$E9/$88/$00  (*           ja      @Fill *)
-                /$38/$CC  (*           cmp     ah, cl *)
-                /$74/$46  (*           jz      @5 *)
-                /$7C/$20  (*           jl      @8 *)
-                    /$50  (*     @6:   push    ax *)
-            /$B8/$5A/$00  (*           mov     ax, BYTES_PER_LINE *)
-                /$F7/$E1  (*           mul     cx *)
-                /$01/$C7  (*           add     di, ax *)
-                    /$58  (*           pop     ax *)
-            /$26/$38/$05  (*     @7:   seges   cmp     [di], al *)
-                /$75/$07  (*           jnz     @@2 *)
-                /$2C/$10  (*           sub     al, $10 *)
-            /$26/$88/$05  (*           seges   mov     [di], al *)
-                /$04/$10  (*           add     al, $10 *)
-            /$83/$C7/$5A  (*     @@2:  add     di, BYTES_PER_LINE *)
-                /$FE/$C1  (*           inc     cl *)
-                /$38/$E1  (*           cmp     cl, ah *)
-                /$72/$EB  (*           jb      @7 *)
-                /$EB/$24  (*           jmp     @5 *)
-                    /$50  (*     @8:   push    ax *)
-            /$BB/$5A/$00  (*           mov     bx, BYTES_PER_LINE *)
-                /$88/$E0  (*           mov     al, ah *)
-                /$B4/$00  (*           mov     ah, 0 *)
-                /$F7/$E3  (*           mul     bx *)
-                /$01/$C7  (*           add     di, ax *)
-                    /$58  (*           pop     ax *)
-                /$2C/$10  (*     @9:   sub     al, $10 *)
-            /$26/$38/$05  (*           seges   cmp     [di], al *)
-                    /$9C  (*           pushf *)
-                /$04/$10  (*           add     al, $10 *)
-                    /$9D  (*           popf *)
-                /$75/$03  (*           jnz     @@1 *)
-            /$26/$88/$05  (*           seges   mov     [di], al *)
-            /$83/$C7/$5A  (*     @@1:  add     di, BYTES_PER_LINE *)
-                /$FE/$C4  (*           inc     ah *)
-                /$38/$CC  (*           cmp     ah, cl *)
-                /$72/$E9  (*           jb      @9 *)
-                    /$5F  (*     @5:   pop     di *)
-                    /$5A  (*           pop     dx *)
-                    /$59  (*           pop     cx *)
-                    /$5B  (*           pop     bx *)
-            /$83/$C3/$04  (*           add     bx, 4 *)
-            /$83/$C1/$04  (*           add     cx, 4 *)
-            /$83/$C2/$04  (*           add     dx, 4 *)
-                    /$47  (*           inc     di *)
-            /$3B/$7E/$F8  (*           cmp     di, X2 *)
-    /$73/$03/$E9/$7B/$FF  (*           jb      @4 *)
-            /$FE/$46/$E7  (*     @2:   inc     Bank *)
-        /$80/$7E/$E7/$04  (*           cmp     Bank, 4 *)
-                /$75/$0A  (*           jnz     @3 *)
-        /$80/$66/$E7/$03  (*           and     Bank, 3 *)
-            /$FF/$46/$FA  (*           inc     X1 *)
-            /$FF/$46/$F8  (*           inc     X2 *)
-            /$FF/$46/$EA  (*     @3:   inc     OldXStart *)
-            /$FF/$46/$EC  (*           inc     XStart *)
-            /$FF/$46/$F6  (*           inc     XPos *)
-            /$FF/$4E/$E8  (*           dec     Count *)
-    /$74/$03/$E9/$34/$FF  (*           jnz     @1 *)
-                    /$07  (*           pop     es *)
-                    /$1F  (*           pop     ds *)
-                /$EB/$3D  (*           jmp     @Exit *)
+    asm
+          push    ds
+          push    es
+          mov     ax, VGA_SEGMENT
+          mov     es, ax
+          lds     si, Map
+          cld
+          mov     Count, 4
+    @1:   mov     cl, Bank
+          mov     ah, 1
+          shl     ah, cl
+          mov     al, MAP_MASK
+          mov     dx, SC_INDEX
+          out     dx, ax
+          mov     ah, cl
+          mov     al, READ_MAP
+          mov     dx, GC_INDEX
+          out     dx, ax
+          mov     dx, XPos
+          mov     al, $F0
+          mov     di, X1
+          mov     cx, OldXStart
+          mov     bx, XStart
+    @4:   push    bx
+          push    cx
+          push    dx
+          push    di
+          mov     ah, [bx + si]  { new position }
+          mov     bx, cx
+          mov     cl, [bx + si]  { old position }
+          mov     ch, 0
+          cmp     Fill, 0
+          jnz     @Fill
+          cmp     dx, X1Pos
+          jb      @Fill
+          cmp     dx, X2Pos
+          ja      @Fill
+          cmp     ah, cl
+          jz      @5
+          jl      @8
+    @6:   push    ax
+          mov     ax, BYTES_PER_LINE
+          mul     cx
+          add     di, ax
+          pop     ax
+    @7:   seges   cmp     [di], al
+          jnz     @@2
+          sub     al, $10
+          seges   mov     [di], al
+          add     al, $10
+    @@2:  add     di, BYTES_PER_LINE
+          inc     cl
+          cmp     cl, ah
+          jb      @7
+          jmp     @5
+    @8:   push    ax
+          mov     bx, BYTES_PER_LINE
+          mov     al, ah
+          mov     ah, 0
+          mul     bx
+          add     di, ax
+          pop     ax
+    @9:   sub     al, $10
+          seges   cmp     [di], al
+          pushf
+          add     al, $10
+          popf
+          jnz     @@1
+          seges   mov     [di], al
+    @@1:  add     di, BYTES_PER_LINE
+          inc     ah
+          cmp     ah, cl
+          jb      @9
+    @5:   pop     di
+          pop     dx
+          pop     cx
+          pop     bx
+          add     bx, 4
+          add     cx, 4
+          add     dx, 4
+          inc     di
+          cmp     di, X2
+          jb      @4
+    @2:   inc     Bank
+          cmp     Bank, 4
+          jnz     @3
+          and     Bank, 3
+          inc     X1
+          inc     X2
+    @3:   inc     OldXStart
+          inc     XStart
+          inc     XPos
+          dec     Count
+          jnz     @1
+          pop     es
+          pop     ds
+          jmp     @Exit
 
-(*     @Fill: *)
-                    /$53  (*           push    bx *)
-                    /$51  (*           push    cx *)
-                /$88/$E9  (*           mov     cl, ch *)
-                /$B5/$00  (*           mov     ch, 0 *)
-                /$88/$E3  (*           mov     bl, ah *)
-                /$B7/$00  (*           mov     bh, 0 *)
-            /$83/$F9/$1A  (*     @@5:  cmp     cx, HEIGHT *)
-                /$77/$2A  (*           ja      @@3 *)
-                /$39/$D9  (*           cmp     cx, bx *)
-                /$72/$14  (*           jb      @@4 *)
-                /$2C/$10  (*           sub     al, $10 *)
-            /$26/$38/$05  (*           seges   cmp     [di], al *)
-                    /$9C  (*           pushf *)
-                /$04/$10  (*           add     al, $10 *)
-                    /$9D  (*           popf *)
-                /$75/$03  (*           jnz     @@7 *)
-            /$26/$88/$05  (*           seges   mov     [di], al *)
-            /$83/$C7/$5A  (*     @@7:  add     di, BYTES_PER_LINE *)
-                    /$41  (*           inc     cx *)
-                /$EB/$E3  (*           jmp     @@5 *)
-            /$26/$38/$05  (*     @@4:  seges   cmp     [di], al *)
-                /$75/$07  (*           jnz     @@6 *)
-                /$2C/$10  (*           sub     al, $10 *)
-            /$26/$88/$05  (*           seges   mov     [di], al *)
-                /$04/$10  (*           add     al, $10 *)
-            /$83/$C7/$5A  (*     @@6:  add     di, BYTES_PER_LINE *)
-                    /$41  (*           inc     cx *)
-                /$EB/$D1  (*           jmp     @@5 *)
-                    /$59  (*     @@3:  pop     cx *)
-                    /$5B  (*           pop     bx *)
-                /$EB/$85  (*           jmp     @5 *)
+    @Fill:
+          push    bx
+          push    cx
+          mov     cl, ch
+          mov     ch, 0
+          mov     bl, ah
+          mov     bh, 0
+    @@5:  cmp     cx, HEIGHT
+          ja      @@3
+          cmp     cx, bx
+          jb      @@4
+          sub     al, $10
+          seges   cmp     [di], al
+          pushf
+          add     al, $10
+          popf
+          jnz     @@7
+          seges   mov     [di], al
+    @@7:  add     di, BYTES_PER_LINE
+          inc     cx
+          jmp     @@5
+    @@4:  seges   cmp     [di], al
+          jnz     @@6
+          sub     al, $10
+          seges   mov     [di], al
+          add     al, $10
+    @@6:  add     di, BYTES_PER_LINE
+          inc     cx
+          jmp     @@5
+    @@3:  pop     cx
+          pop     bx
+          jmp     @5
 
-(*     @Exit: *)
-);
+    @Exit:
+    end;
   end;
 
+  (*
+  const
+    CheckCode = 16;  { Don't draw background where this code is found }
+  var
+    Top,
+    Check: Word;
+  begin
+    Exit;
+    Top := Options.Horizon - Height;
+    Check := XView + (NV * H {+ WindowY}) * 320;  { Check code here }
+    asm
+          push    es
+          push    ds
+          mov     bx, 320
+          mov     ax, Top
+  {        add     ax, WindowY }
+          mul     bx
+          add     ax, XView
+          mov     di, ax
+          mov     ax, VidMemSeg
+          mov     es, ax
+          lds     si, Image
+          cld
+          mov     cx, 320
+          mov     bx, Check
+
+    @1:   push    cx
+          push    di
+
+          lodsb
+          push    si
+          push    bx
+
+          seges
+          cmp     Byte Ptr [bx], 0
+          jnz     @5
+
+          mov     ch, al
+          mov     cl, Height
+          sub     cl, ch       { cl: sky }
+          mov     bl, Height
+          sub     bl, al
+          mov     ax, 320
+          mov     bh, 0
+          mul     bx
+          add     di, ax
+          mov     si, di
+
+          add     cx, 0202h
+          mov     dh, 0
+
+          mov     al, $F0
+          seges   mov     dl, [di]
+          cmp     dl, $F0
+          jz      @_0
+
+    @3:   cmp     dl, $E0
+          jnz     @@1
+          dec     dh
+          stosb
+          dec     di
+    @@1:  add     di, 320
+          seges   mov     dl, [di]
+          cmp     dl, $F0
+          jnz     @_1
+    @_0:  dec     dh
+          jmp     @2
+    @_1:  dec     ch
+          jnz     @3
+
+    @2:   mov     di, si
+          mov     al, $E0
+          sub     di, 320
+          seges   mov     dl, [di]
+          cmp     dl, $E0
+          jz      @5
+
+    @4:   cmp     dl, $F0
+          jnz     @@2
+          dec     dh
+          stosb
+          dec     di
+    @@2:  sub     di, 320
+          seges   mov     dl, [di]
+          cmp     dl, $E0
+          jz      @5
+          dec     cl
+          jnz     @4
+
+          or      dh, dh
+          jnz     @5
+
+          pop     bx
+          seges
+          mov     byte ptr [bx], CheckCode
+          jmp     @6
+
+    @5:   pop     bx
+    @6:   pop     si
+          pop     di
+          inc     di
+          inc     bx
+          pop     cx
+          dec     cx
+          jnz     @1
+          pop     ds
+          pop     es
+    end;
+  end;
+  *)
 
   procedure BrickPalette (i: Integer);
   var
@@ -634,97 +738,142 @@ inline(
 
   procedure DrawBricks (X, Y, W, H: Integer);
   begin
-    PutImage (X, Y, W, H, A3(@PALBRICK000^)^);
+    {
+    for i := X to X + W - 1 do
+    begin
+      Fill (i, Y, 1, H div 2, $E0 + i and $0F);
+      PutPixel (i, Y, $F0);
+      Fill (i, Y + H div 2, 1, H div 2, $E0 + (i + 8) and $0F);
+      PutPixel (i, Y + H div 2, $F0);
+    end;
+    }
+
+    PutImage (X, Y, W, H, @PALBRICK000^);
+
   end;
 
   procedure LargeBricks (X, Y, W, H: Integer);
   begin
-inline(
-                     $06  (*             push  es *)
-            /$BB/$40/$01  (*             mov   bx, 320 *)
-            /$8B/$46/$0A  (*             mov   ax, Y *)
-(*   {          add   ax, WindowY } *)
-                /$F7/$E3  (*             mul   bx *)
-            /$03/$46/$0C  (*             add   ax, X *)
-                /$89/$C7  (*             mov   di, ax *)
-                /$88/$C3  (*             mov   bl, al *)
-            /$80/$E3/$1F  (*             and   bl, 00011111b *)
-            /$80/$C3/$E0  (*             add   bl, $E0 *)
-            /$B8/$00/$A0  (*             mov   ax, VGA_SEGMENT *)
-                /$8E/$C0  (*             mov   es, ax *)
-            /$8B/$4E/$06  (*             mov   cx, H *)
-            /$8B/$56/$0A  (*             mov   dx, Y *)
+    asm
+            push  es
+            mov   bx, 320
+            mov   ax, Y
+  {          add   ax, WindowY }
+            mul   bx
+            add   ax, X
+            mov   di, ax
+            mov   bl, al
+            and   bl, 00011111b
+            add   bl, $E0
+            mov   ax, VGA_SEGMENT
+            mov   es, ax
+            mov   cx, H
+            mov   dx, Y
 
-                    /$52  (*             push  dx *)
-            /$80/$C2/$0E  (*             add   dl, 14          { Why? } *)
-            /$80/$E2/$10  (*             and   dl, 00010000b *)
-                /$08/$D2  (*             or    dl, dl *)
-                /$74/$03  (*             jz    @0 *)
-            /$80/$F3/$10  (*             xor   bl, 16 *)
-(*     @0: *)
-                    /$5A  (*             pop   dx *)
+            push  dx
+            add   dl, 14          { Why? }
+            and   dl, 00010000b
+            or    dl, dl
+            jz    @0
+            xor   bl, 16
+    @0:
+            pop   dx
 
-                /$E3/$41  (*             jcxz  @End *)
-(*     @1: *)
-                    /$51  (*             push  cx *)
-            /$8B/$4E/$08  (*             mov   cx, W *)
-                /$E3/$36  (*             jcxz  @3 *)
-                    /$57  (*             push  di *)
+            jcxz  @End
+    @1:
+            push  cx
+            mov   cx, W
+            jcxz  @3
+            push  di
 
-                /$B0/$D4  (*             mov   al, $D4 *)
-            /$80/$E2/$0F  (*             and   dl, 00001111b *)
-            /$80/$FA/$02  (*             cmp   dl, 2 *)
-                /$74/$0E  (*             jz    @@1 *)
-                /$77/$18  (*             ja    @Brick *)
-                /$B0/$D1  (*             mov   al, $D1 *)
-            /$80/$FA/$00  (*             cmp   dl, 0 *)
-                /$77/$05  (*             ja    @@1 *)
+            mov   al, $D4
+            and   dl, 00001111b
+            cmp   dl, 2
+            jz    @@1
+            ja    @Brick
+            mov   al, $D1
+            cmp   dl, 0
+            ja    @@1
+            mov   al, $D6
+            xor   bl, 16
+    @@1:
+            mov   ah, al
+            shr   cx, 1
+            rep   stosw
+            rcl   cx, 1
+            rep   stosb
+            jmp   @LineEnd
 
-(* /$B0/$D6/$80/$F3/$10/$88/$C4/$D1/$E9/$F3/$AB/$D1/$D1/$F3/$AA/
-$EB/$0C/$88/$D8/$24/$1F/$04/$E0/$AA/$FE/$C0/$49/$75/$F6/$5F/$81/$C7/$40/
-$01/$59/$42/$49/$75/$BF/$07/$5D/$CA/$08/$00/$55/$89/$E5/$8B/$46/$0C/$99/
-$F7/$7E/$08/$99/$B9/$03/$00/$F7/$F9/$92/$3 *)
+    @Brick:
+            mov   al, bl
+    @2:
+            and   al, 00011111b
+            add   al, $E0
+            stosb
+            inc   al
+            dec   cx
+            jnz   @2
 
-                /$B0/$D6  (*             mov   al, $D6 *)
-            /$80/$F3/$10  (*             xor   bl, 16 *)
-(*     @@1: *)
-                /$88/$C4  (*             mov   ah, al *)
-                /$D1/$E9  (*             shr   cx, 1 *)
-                /$F3/$AB  (*             rep   stosw *)
-                /$D1/$D1  (*             rcl   cx, 1 *)
-                /$F3/$AA  (*             rep   stosb *)
-                /$EB/$0C  (*             jmp   @LineEnd *)
-
-(*     @Brick: *)
-                /$88/$D8  (*             mov   al, bl *)
-(*     @2: *)
-                /$24/$1F  (*             and   al, 00011111b *)
-                /$04/$E0  (*             add   al, $E0 *)
-                    /$AA  (*             stosb *)
-                /$FE/$C0  (*             inc   al *)
-                    /$49  (*             dec   cx *)
-                /$75/$F6  (*             jnz   @2 *)
-
-(*     @LineEnd: *)
-                    /$5F  (*             pop   di *)
-        /$81/$C7/$40/$01  (*             add   di, 320 *)
-(*     @3: *)
-                    /$59  (*             pop   cx *)
-                    /$42  (*             inc   dx *)
-                    /$49  (*             dec   cx *)
-                /$75/$BF  (*             jnz   @1 *)
-(*     @End: *)
-                    /$07  (*             pop   es *)
-);
+    @LineEnd:
+            pop   di
+            add   di, 320
+    @3:
+            pop   cx
+            inc   dx
+            dec   cx
+            jnz   @1
+    @End:
+            pop   es
+    end;
   end;
 
   procedure Pillar (X, Y, W, H: Integer);
   begin
     case (X div W) mod 3 of
-      0: PutImage (X, Y, W, H, A3(@PalPill000^)^);
-      1: PutImage (X, Y, W, H, A3(@PalPill001^)^);
-      2: PutImage (X, Y, W, H, A3(@PalPill002^)^);
+      0: PutImage (X, Y, W, H, @PalPill000^);
+      1: PutImage (X, Y, W, H, @PalPill001^);
+      2: PutImage (X, Y, W, H, @PalPill002^);
     end;
+
+  (*  asm
+            push  es
+            mov   bx, 320
+            mov   ax, Y
+  {          add   ax, WindowY }
+            mul   bx
+            add   ax, X
+            mov   di, ax
+            mov   bl, al
+            or    bl, $C0
+            mov   ax, VidMemSeg
+            mov   es, ax
+            mov   cx, H
+            jcxz  @End
+    @1:
+            push  cx
+            mov   cx, W
+            jcxz  @3
+
+            push  di
+
+            mov   al, bl
+    @2:     or    al, 0C0h
+            stosb
+            inc   al
+            dec   cx
+            jnz   @2
+
+    @LineEnd:
+            pop   di
+            add   di, 320
+    @3:
+            pop   cx
+            inc   dx
+            dec   cx
+            jnz   @1
+    @End:
+            pop   es
+    end;  *)
   end;
 
   procedure Windows (X, Y, W, H: Integer);
@@ -732,61 +881,61 @@ $F7/$7E/$08/$99/$B9/$03/$00/$F7/$F9/$92/$3 *)
     Y1 =  50;
     Y2 =  80;
   begin
-inline(
-                     $06  (*             push  es *)
-            /$BB/$40/$01  (*             mov   bx, 320 *)
-            /$8B/$46/$0A  (*             mov   ax, Y *)
-                /$89/$C6  (*             mov   si, ax *)
-            /$83/$C6/$16  (*             add   si, 22 *)
-(*   {          add   ax, WindowY } *)
-                /$F7/$E3  (*             mul   bx *)
-            /$03/$46/$0C  (*             add   ax, X *)
-                /$89/$C7  (*             mov   di, ax *)
-                /$88/$C3  (*             mov   bl, al *)
-            /$80/$CB/$C0  (*             or    bl, $C0 *)
-            /$B8/$00/$A0  (*             mov   ax, VGA_SEGMENT *)
-                /$8E/$C0  (*             mov   es, ax *)
-            /$8B/$4E/$06  (*             mov   cx, H *)
-                /$E3/$35  (*             jcxz  @End *)
-(*     @1: *)
-                    /$51  (*             push  cx *)
-            /$8B/$4E/$08  (*             mov   cx, W *)
-                /$E3/$29  (*             jcxz  @3 *)
+    asm
+            push  es
+            mov   bx, 320
+            mov   ax, Y
+            mov   si, ax
+            add   si, 22
+  {          add   ax, WindowY }
+            mul   bx
+            add   ax, X
+            mov   di, ax
+            mov   bl, al
+            or    bl, $C0
+            mov   ax, VGA_SEGMENT
+            mov   es, ax
+            mov   cx, H
+            jcxz  @End
+    @1:
+            push  cx
+            mov   cx, W
+            jcxz  @3
 
-                    /$57  (*             push  di *)
-                /$88/$D8  (*             mov   al, bl *)
+            push  di
+            mov   al, bl
 
-        /$81/$E6/$1F/$00  (*             and   si, 00011111b *)
-            /$83/$FE/$03  (*             cmp   si, 00000011b *)
-                /$72/$0C  (*             jb    @4 *)
+            and   si, 00011111b
+            cmp   si, 00000011b
+            jb    @4
 
-                /$24/$1F  (*     @2:     and   al, 00011111b *)
-                /$0C/$E0  (*             or    al, 11100000b *)
-                    /$AA  (*             stosb *)
-                /$FE/$C0  (*             inc   al *)
-                    /$49  (*             dec   cx *)
-                /$75/$F6  (*             jnz   @2 *)
-                /$EB/$0C  (*             jmp   @LineEnd *)
+    @2:     and   al, 00011111b
+            or    al, 11100000b
+            stosb
+            inc   al
+            dec   cx
+            jnz   @2
+            jmp   @LineEnd
 
-            /$B8/$01/$01  (*     @4:     mov   ax, 0101h *)
-                    /$FC  (*             cld *)
-                /$D1/$E9  (*             shr   cx, 1 *)
-                /$F3/$AB  (*             rep   stosw *)
-                /$D1/$D1  (*             rcl   cx, 1 *)
-                /$F3/$AA  (*             rep   stosb *)
+    @4:     mov   ax, 0101h
+            cld
+            shr   cx, 1
+            rep   stosw
+            rcl   cx, 1
+            rep   stosb
 
-(*     @LineEnd: *)
-                    /$5F  (*             pop   di *)
-        /$81/$C7/$40/$01  (*             add   di, 320 *)
-(*     @3: *)
-                    /$59  (*             pop   cx *)
-                    /$42  (*             inc   dx *)
-                    /$46  (*             inc   si *)
-                    /$49  (*             dec   cx *)
-                /$75/$CB  (*             jnz   @1 *)
-(*     @End: *)
-                    /$07  (*             pop   es *)
-);
+    @LineEnd:
+            pop   di
+            add   di, 320
+    @3:
+            pop   cx
+            inc   dx
+            inc   si
+            dec   cx
+            jnz   @1
+    @End:
+            pop   es
+    end;
   end;
 
   procedure DrawBackGrBlock (X, Y, W, H: Integer);
@@ -817,111 +966,111 @@ inline(
   begin
     PageOffset := GetPageOffset;
     Horizon := Options.Horizon - 4;  { -4 for BumpBlock }
-inline(
-                     $06  (*         push    es *)
-            /$B8/$00/$A0  (*         mov     ax, VGA_SEGMENT *)
-                /$8E/$C0  (*         mov     es, ax *)
+    asm
+        push    es
+        mov     ax, VGA_SEGMENT
+        mov     es, ax
 
-            /$8B/$56/$0A  (*         mov     dx, Y *)
-            /$B8/$5A/$00  (*         mov     ax, VIR_SCREEN_WIDTH / 4 *)
-                /$F7/$E2  (*         mul     dx *)
-            /$8B/$7E/$0C  (*         mov     di, X *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$D1/$EF  (*         shr     di, 1 *)
-                /$01/$C7  (*         add     di, ax *)
-            /$03/$7E/$FE  (*         add     di, PageOffset *)
+        mov     dx, Y
+        mov     ax, VIR_SCREEN_WIDTH / 4
+        mul     dx
+        mov     di, X
+        shr     di, 1
+        shr     di, 1
+        add     di, ax
+        add     di, PageOffset
 
-            /$8B/$46/$0A  (*         mov     ax, Y *)
-            /$3B/$46/$FC  (*         cmp     ax, Horizon *)
-                /$72/$04  (*         jb      @0 *)
-                /$B2/$F0  (*         mov     dl, $F0 *)
-                /$EB/$0F  (*         jmp     @3 *)
+        mov     ax, Y
+        cmp     ax, Horizon
+        jb      @0
+        mov     dl, $F0
+        jmp     @3
 
-                /$B3/$06  (*     @0: mov     bl, 6 *)
-                /$F6/$F3  (*         div     bl *)
-                /$B2/$EF  (*         mov     dl, $EF *)
-                /$28/$C2  (*         sub     dl, al *)
-            /$80/$FA/$E0  (*         cmp     dl, $E0 *)
-                /$73/$02  (*         jnb     @3 *)
-                /$B2/$E0  (*         mov     dl, $E0 *)
-                /$88/$E6  (*     @3: mov     dh, ah *)
+    @0: mov     bl, 6
+        div     bl
+        mov     dl, $EF
+        sub     dl, al
+        cmp     dl, $E0
+        jnb     @3
+        mov     dl, $E0
+    @3: mov     dh, ah
 
-            /$8B/$5E/$06  (*         mov     bx, H *)
-            /$83/$FB/$00  (*         cmp     bx, 0 *)
-                /$7E/$7B  (*         jle     @End *)
-            /$8B/$4E/$08  (*         mov     cx, W *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$D1/$E9  (*         shr     cx, 1 *)
+        mov     bx, H
+        cmp     bx, 0
+        jle     @End
+        mov     cx, W
+        shr     cx, 1
+        shr     cx, 1
 
-                    /$FC  (*         cld *)
+        cld
 
-                    /$57  (*     @1: push    di *)
-                    /$51  (*         push    cx *)
-                    /$52  (*         push    dx *)
-                /$B4/$0F  (*         mov     ah, 0Fh *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
-                    /$5A  (*         pop     dx *)
-                /$88/$D0  (*         mov     al, dl *)
-                /$88/$C4  (*         mov     ah, al *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$F3/$AB  (*         rep     stosw *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$F3/$AA  (*         rep     stosb *)
-                    /$59  (*         pop     cx *)
-                    /$5F  (*         pop     di *)
+    @1: push    di
+        push    cx
+        push    dx
+        mov     ah, 0Fh
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
+        pop     dx
+        mov     al, dl
+        mov     ah, al
+        shr     cx, 1
+        rep     stosw
+        rcl     cx, 1
+        rep     stosb
+        pop     cx
+        pop     di
 
-            /$80/$FE/$03  (*         cmp     dh, 3 *)
-                /$72/$2C  (*         jb      @4 *)
-                /$3C/$E0  (*         cmp     al, $E0 *)
-                /$74/$07  (*         jz      @2 *)
-                /$3C/$F0  (*         cmp     al, $F0 *)
-                /$74/$03  (*         jz      @2 *)
-            /$2D/$01/$01  (*         sub     ax, 0101h *)
-                    /$50  (*     @2: push    ax *)
-                    /$52  (*         push    dx *)
-                /$B4/$05  (*         mov     ah, 0101b *)
-                    /$51  (*         push    cx *)
-                /$88/$F1  (*         mov     cl, dh *)
-            /$80/$E1/$01  (*         and     cl, 1 *)
-                /$D2/$E4  (*         shl     ah, cl *)
-                    /$59  (*         pop     cx *)
-                /$B0/$02  (*         mov     al, MAP_MASK *)
-            /$BA/$C4/$03  (*         mov     dx, SC_INDEX *)
-                    /$EF  (*         out     dx, ax *)
-                    /$5A  (*         pop     dx *)
-                    /$58  (*         pop     ax *)
-                    /$57  (*         push    di *)
-                    /$51  (*         push    cx *)
-                /$D1/$E9  (*         shr     cx, 1 *)
-                /$F3/$AB  (*         rep     stosw *)
-                /$D1/$D1  (*         rcl     cx, 1 *)
-                /$F3/$AA  (*         rep     stosb *)
-                    /$59  (*         pop     cx *)
-                    /$5F  (*         pop     di *)
+        cmp     dh, 3
+        jb      @4
+        cmp     al, $E0
+        jz      @2
+        cmp     al, $F0
+        jz      @2
+        sub     ax, 0101h
+    @2: push    ax
+        push    dx
+        mov     ah, 0101b
+        push    cx
+        mov     cl, dh
+        and     cl, 1
+        shl     ah, cl
+        pop     cx
+        mov     al, MAP_MASK
+        mov     dx, SC_INDEX
+        out     dx, ax
+        pop     dx
+        pop     ax
+        push    di
+        push    cx
+        shr     cx, 1
+        rep     stosw
+        rcl     cx, 1
+        rep     stosb
+        pop     cx
+        pop     di
 
-            /$FF/$46/$0A  (*     @4: inc     Y *)
-            /$8B/$46/$0A  (*         mov     ax, Y *)
-            /$3B/$46/$FC  (*         cmp     ax, Horizon *)
-                /$72/$02  (*         jb      @9 *)
-                /$B2/$F0  (*         mov     dl, $F0 *)
-                /$FE/$C6  (*     @9: inc     dh *)
-            /$80/$FE/$06  (*         cmp     dh, 6 *)
-                /$75/$0E  (*         jnz     @5 *)
-                /$B6/$00  (*         mov     dh, 0 *)
-            /$80/$FA/$E0  (*         cmp     dl, $E0 *)
-                /$74/$07  (*         jz      @5 *)
-            /$80/$FA/$F0  (*         cmp     dl, $F0 *)
-                /$74/$02  (*         jz      @5 *)
-                /$FE/$CA  (*         dec     dl *)
-            /$83/$C7/$5A  (*     @5: add     di, VIR_SCREEN_WIDTH / 4 *)
-                    /$4B  (*         dec     bx *)
-                /$75/$8D  (*         jnz     @1 *)
+    @4: inc     Y
+        mov     ax, Y
+        cmp     ax, Horizon
+        jb      @9
+        mov     dl, $F0
+    @9: inc     dh
+        cmp     dh, 6
+        jnz     @5
+        mov     dh, 0
+        cmp     dl, $E0
+        jz      @5
+        cmp     dl, $F0
+        jz      @5
+        dec     dl
+    @5: add     di, VIR_SCREEN_WIDTH / 4
+        dec     bx
+        jnz     @1
 
-(*   @End: *)
-                    /$07  (*         pop     es *)
-);
+  @End:
+        pop     es
+    end;
   end;
 
 end.

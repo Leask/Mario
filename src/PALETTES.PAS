@@ -357,18 +357,18 @@ implementation
       end;
     end;
     if not LockPalette then
-inline(
-             $BA/$C8/$03  (*           mov     dx, 03C8h       { DAC Write Address Register } *)
-            /$8A/$46/$0C  (*           mov     al, Color *)
-                    /$EE  (*           out     dx, al *)
-                    /$42  (*           inc     dx *)
-            /$8A/$46/$0A  (*           mov     al, Red *)
-                    /$EE  (*           out     dx, al *)
-            /$8A/$46/$08  (*           mov     al, Green *)
-                    /$EE  (*           out     dx, al *)
-            /$8A/$46/$06  (*           mov     al, Blue *)
-                    /$EE  (*           out     dx, al *)
-);
+    asm
+          mov     dx, 03C8h       { DAC Write Address Register }
+          mov     al, Color
+          out     dx, al
+          inc     dx
+          mov     al, Red
+          out     dx, al
+          mov     al, Green
+          out     dx, al
+          mov     al, Blue
+          out     dx, al
+    end;
   end;
 
   procedure LockPal;
@@ -392,5 +392,5 @@ inline(
   end;
 
 begin
-  P256 := Ptr(CSEG,Ofs(@PAL256^)+3);
+  P256 := @Pal256;
 end.
